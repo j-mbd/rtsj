@@ -10,10 +10,7 @@ public class App {
 
 		AsynchronouslyInterruptedException exception = new AsynchronouslyInterruptedException();
 
-		// new InterrupteeInNonATCDeferredBlocking(exception).start();
-		// new InterrupteeInATCDeferredBlocking(exception).start();
-		// new InterrupteeInNonATCDeferredNonBlocking(exception).start();
-		new InterrupteeInATCDeferredNonBlocking(exception).start();
+		new InterrupteeInAINonBlocking(exception).start();
 		new Interrupter(exception).start();
 	}
 }

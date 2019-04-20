@@ -7,13 +7,13 @@ import javax.realtime.Interruptible;
 import javax.realtime.RealtimeThread;
 import javax.realtime.RelativeTime;
 
-public class InterrupteeInNonATCDeferredNonBlocking extends RealtimeThread implements Interruptible {
+public class InterrupteeInAINonBlocking extends RealtimeThread implements Interruptible {
 
 	private AsynchronouslyInterruptedException exception;
 
 	private Clock clock;
 
-	public InterrupteeInNonATCDeferredNonBlocking(AsynchronouslyInterruptedException exception) {
+	public InterrupteeInAINonBlocking(AsynchronouslyInterruptedException exception) {
 
 		this.exception = exception;
 		this.clock = Clock.getRealtimeClock();
@@ -44,13 +44,14 @@ public class InterrupteeInNonATCDeferredNonBlocking extends RealtimeThread imple
 
 			System.out.println("Interruptee: inside loop...");
 
+			// ATC-deferred
 			busyWaitBlock(waitTime);
 
 			System.out.println("Was interrupted ? " + (isInterrupted() ? "Yes" : "No"));
 		}
 	}
 
-	private void busyWaitBlock(RelativeTime waitTime) {
+	private void busyWaitBlock(RelativeTime waitTime) throws AsynchronouslyInterruptedException {
 
 		System.out.println("Busy waiting...");
 

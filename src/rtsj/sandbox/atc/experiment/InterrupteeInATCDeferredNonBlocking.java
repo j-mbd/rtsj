@@ -44,13 +44,14 @@ public class InterrupteeInATCDeferredNonBlocking extends RealtimeThread implemen
 
 			System.out.println("Interruptee: inside loop...");
 
+			// ATC-deferred
 			busyWaitBlock(waitTime);
 
 			System.out.println("Was interrupted ? " + (isInterrupted() ? "Yes" : "No"));
 		}
 	}
 
-	private void busyWaitBlock(RelativeTime waitTime) throws AsynchronouslyInterruptedException {
+	private void busyWaitBlock(RelativeTime waitTime) {
 
 		System.out.println("Busy waiting...");
 
