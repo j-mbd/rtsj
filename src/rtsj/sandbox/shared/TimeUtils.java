@@ -1,6 +1,8 @@
-package rtsj.sandbox.aperiodic_service.polling_server;
+package rtsj.sandbox.shared;
 
-import java.util.Comparator;
+import javax.realtime.AbsoluteTime;
+import javax.realtime.Clock;
+import javax.realtime.RelativeTime;
 
 /**
  * THIS SOFTWARE IS PROVIDED BY Savvas Moysidis “AS IS” AND ANY EXPRESS OR
@@ -15,18 +17,17 @@ import java.util.Comparator;
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * 
- * Sorts aperiodic events lowest cost to highest.
- * 
- * Thread-safe
- * 
  * @author savvas
  *
  */
-public class AperiodicEventCostComparator<T extends RunnableAperiodicEvent> implements Comparator<T> {
+public class TimeUtils {
 
-	@Override
 	@SuppressWarnings("unchecked")
-	public int compare(RunnableAperiodicEvent o1, RunnableAperiodicEvent o2) {
-		return o1.cost().compareTo(o2.cost());
+	public static void spinWait(RelativeTime time) {
+		AbsoluteTime now = Clock.getRealtimeClock().getTime();
+		AbsoluteTime waitUntil = now.add(time);
+		while (now.compareTo(waitUntil) < 0) {
+			Clock.getRealtimeClock().getTime(now);
+		}
 	}
 }
