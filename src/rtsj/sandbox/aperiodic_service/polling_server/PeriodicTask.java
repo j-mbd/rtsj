@@ -24,8 +24,12 @@ import rtsj.sandbox.shared.TimeUtils;
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
+ * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
+ * FREELY (OR EVEN NOT FREELY) AVAILABLE.
  * 
- * Instances are main (i.e. non-server) tasks.
+ * 
+ * Instances are "regular" (i.e. non-server) tasks belonging to the periodic
+ * task set.
  * 
  * @author savvas
  *
@@ -64,6 +68,7 @@ public class PeriodicTask extends RealtimeThread {
 			mem.enter(new Runnable() {
 				@Override
 				public void run() {
+					// emulate some task work
 					TimeUtils.spinWait(cost);
 				}
 			});

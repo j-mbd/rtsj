@@ -22,8 +22,11 @@ import javax.realtime.memory.ScopedMemory;
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
+ * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
+ * FREELY (OR EVEN NOT FREELY) AVAILABLE.
  * 
- * Implements the PollingServer algorithm for aperiodic service.
+ * 
+ * Implements the polling-server algorithm for aperiodic service.
  * 
  * INVARIANTS:
  * 
@@ -38,9 +41,10 @@ public class PollingServer extends RealtimeThread {
 
 	private final RelativeTime totalBudget;
 	private final Timed timed;
-	private final AperiodicEventPriorityQueue<RunnableAperiodicEvent> eventQueue;
+	private final AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> eventQueue;
 	// These values may be modified from within scoped memory (through the set*()
-	// methods), hence it's a good idea if all assignments are made here
+	// methods), hence it's a good idea if all assignments are made here and are
+	// final.
 	private final AbsoluteTime eventProcessingStart;
 	private final AbsoluteTime eventProcessingEnd;
 	private final RelativeTime totalProcessingCost;
@@ -58,7 +62,7 @@ public class PollingServer extends RealtimeThread {
 	 */
 	@SuppressWarnings("unchecked")
 	public PollingServer(int priority, RelativeTime period, RelativeTime budget,
-			AperiodicEventPriorityQueue<RunnableAperiodicEvent> eventQueue) {
+			AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> eventQueue) {
 		assert period.compareTo(budget) >= 0 : "period must not be less than capacity";
 		assert priority >= 0 : "priority must not be negative";
 		setSchedulingParameters(new PriorityParameters(priority));
@@ -84,7 +88,7 @@ public class PollingServer extends RealtimeThread {
 			mem.enter(new Runnable() {
 				@Override
 				public void run() {
-					for (RunnableAperiodicEvent event = eventQueue.pop(); canProcessEvent(
+					for (InterruptibleAperiodicEvent event = eventQueue.pop(); canProcessEvent(
 							event); event = eventQueue.pop()) {
 						Clock.getRealtimeClock().getTime(eventProcessingStart);
 						timed.doInterruptible(event);
@@ -94,7 +98,7 @@ public class PollingServer extends RealtimeThread {
 						assert (remainingBudget.compareToZero() >= 0) : "remainingBudget must not be negative";
 						// adjust new interrupt timeout
 						timed.resetTime(remainingBudget);
-						// re-push if interrupted and can restart so that event is processed in
+						// re-push event if interrupted and it can restart so that event is processed in
 						// subsequent runs
 						if (event.wasInterrupted() && event.canRestart()) {
 							eventQueue.push(event);
@@ -107,7 +111,7 @@ public class PollingServer extends RealtimeThread {
 		}
 	}
 
-	private boolean canProcessEvent(RunnableAperiodicEvent event) {
+	private boolean canProcessEvent(InterruptibleAperiodicEvent event) {
 		return (event != null) && (remainingBudget.compareToZero() > 0);
 	}
 

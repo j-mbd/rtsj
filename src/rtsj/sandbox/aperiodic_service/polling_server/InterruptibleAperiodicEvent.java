@@ -17,6 +17,9 @@ import javax.realtime.RelativeTime;
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
+ * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
+ * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * 
  * 
  * RunnableAperiodicEvents implement Interruptible so they can be used as the
  * target of AsynchronouslyInterruptedException* classes where the "run" method
@@ -30,7 +33,7 @@ import javax.realtime.RelativeTime;
  *
  */
 
-public abstract class RunnableAperiodicEvent implements Interruptible {
+public abstract class InterruptibleAperiodicEvent implements Interruptible {
 
 	protected final RelativeTime totalCost;
 	protected final RelativeTime deadline;
@@ -42,18 +45,20 @@ public abstract class RunnableAperiodicEvent implements Interruptible {
 	protected boolean canRestart;
 	protected RelativeTime remainingCost;
 
-	protected RunnableAperiodicEvent(RelativeTime cost, RelativeTime deadline, String name) {
+	protected InterruptibleAperiodicEvent(RelativeTime cost, RelativeTime deadline, String name) {
 		this.totalCost = cost;
 		this.deadline = deadline;
-		absoluteDeadline = Clock.getRealtimeClock().getTime().add(deadline);
+		// creation time and absolute deadline may not necessarily be the same as
+		// "physical" event time
 		creationTime = Clock.getRealtimeClock().getTime();
+		absoluteDeadline = creationTime.add(deadline);
 		this.name = name;
 		wasInterrupted = false;
 		canRestart = true;
 		remainingCost = new RelativeTime(totalCost);
 	}
 
-	// ****************************STATE REPORT****************************
+	// ****************************STATUS REPORT****************************
 	/**
 	 * What is the total cost of this event?
 	 * 
@@ -130,7 +135,7 @@ public abstract class RunnableAperiodicEvent implements Interruptible {
 	 * 
 	 * @return
 	 */
-	public boolean isRestartable() {
+	public boolean isTypeRestartable() {
 		return false;
 	}
 

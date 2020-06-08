@@ -17,6 +17,9 @@ import javax.realtime.RelativeTime;
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
+ * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
+ * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * 
  * 
  * @author savvas
  *
@@ -34,17 +37,17 @@ public class App {
 		t1.start();
 		t2.start();
 
-		AperiodicEventPriorityQueue<RunnableAperiodicEvent> q = new AperiodicEventPriorityQueue<RunnableAperiodicEvent>();
+		AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> q = new AperiodicEventPriorityQueue<InterruptibleAperiodicEvent>();
 
-		// assign polling server highest priority as we can't guarantee ties will be
-		// broken on favour of the server
+		// assigning polling-server highest priority as we can't guarantee ties will be
+		// broken in favour of the server
 		PollingServer ps = new PollingServer(maxPriority, new RelativeTime(50, 0), new RelativeTime(20, 0), q);
 		ps.start();
 
 		beginEventGeneration(q);
 	}
 
-	private static void beginEventGeneration(AperiodicEventPriorityQueue<RunnableAperiodicEvent> q) {
+	private static void beginEventGeneration(AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> q) {
 		Random r = new Random();
 		final int maxDelay = 5_000;
 		int nextDelay = 0;

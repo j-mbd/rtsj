@@ -12,6 +12,9 @@ package rtsj.sandbox.aperiodic_service.polling_server;
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
+ * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
+ * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * 
  * 
  * Strategy for event admission. Can be cost based if events are not restartable
  * or deadline based if they are.
@@ -22,7 +25,7 @@ package rtsj.sandbox.aperiodic_service.polling_server;
  */
 
 @FunctionalInterface
-public interface AperiodicEventAdmissionControl<T extends RunnableAperiodicEvent> {
+public interface AperiodicEventAdmissionControl<T extends InterruptibleAperiodicEvent> {
 
 	boolean canAccept(T event);
 }

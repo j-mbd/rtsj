@@ -17,22 +17,22 @@ import javax.realtime.RelativeTime;
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
- * IMPORTANT NOTE: COULD NOT BE TESTED AS Aicas HAVE DISCONTINUED THEIR PERSONAL
- * EDITION OFFERING.
+ * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
+ * FREELY (OR EVEN NOT FREELY) AVAILABLE.
  * 
  * 
  * A sample simulation of three threads participating in an atomic-action. When
- * testing, care must be taken to ensure all scenarios that reflect all possible
- * task histories are covered. Consider the following matrix for three threads,
- * for example, where "0" means task completed successfully and "1" means the
- * task failed: In addition to this, all potential finish outcomes need to be
+ * testing, care must be taken to ensure all scenarios reflecting all possible
+ * thread histories are covered. Consider the following matrix for three
+ * threads, for example, where "0" means task completed successfully and "1" the
+ * task failed. In addition to this, all potential finish outcomes need to be
  * taken into account (i.e. t2 finishes first, then t1 then t3 and so on). So,
  * for each row the following permutation of finish histories needs to be tested
- * (e.g. "t2t1t3" means t2 finishes first then t1 and then t2):
+ * (e.g. "t2t1t3" means t2 finishes first then t1 and then t3):
  * 
  * (t1t2t3, t1t3t2, t2t1t3, t2t3t1, t3t1t2, t3t2t1)
  * 
- * Note, some tests may be redundant but having them won't hurt.. ;-)
+ * Note, some tests may be redundant but having them won't hurt. :-)
  * 
  * ----------------------------------------------------------------------------
  * t1t2t3

@@ -14,19 +14,25 @@ import java.util.Comparator;
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
+ * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
+ * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * 
  * 
  * Sorts aperiodic events lowest cost to highest.
+ * 
+ * (This is only one option. Other comparators can be based off arrival-time or
+ * deadline)
  * 
  * Thread-safe
  * 
  * @author savvas
  *
  */
-public class AperiodicEventCostComparator<T extends RunnableAperiodicEvent> implements Comparator<T> {
+public class AperiodicEventCostComparator<T extends InterruptibleAperiodicEvent> implements Comparator<T> {
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public int compare(RunnableAperiodicEvent o1, RunnableAperiodicEvent o2) {
-		return o1.cost().compareTo(o2.cost());
+	public int compare(InterruptibleAperiodicEvent ae1, InterruptibleAperiodicEvent ae2) {
+		return ae1.cost().compareTo(ae2.cost());
 	}
 }

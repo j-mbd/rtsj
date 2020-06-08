@@ -16,6 +16,9 @@ import java.util.concurrent.PriorityBlockingQueue;
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
+ * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
+ * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * 
  * 
  * Provides access to aperiodic events returned in an order defined by the given
  * comparator or the elements' natural ordering. Initial capacity may be set but
@@ -29,7 +32,7 @@ import java.util.concurrent.PriorityBlockingQueue;
  * @author savvas
  *
  */
-public class AperiodicEventPriorityQueue<T extends RunnableAperiodicEvent> {
+public class AperiodicEventPriorityQueue<T extends InterruptibleAperiodicEvent> {
 
 	private static final int DEFAULT_QUEUE_SIZE = 10;
 
