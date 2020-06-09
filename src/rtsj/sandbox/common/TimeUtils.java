@@ -1,4 +1,4 @@
-package rtsj.sandbox.shared;
+package rtsj.sandbox.common;
 
 import javax.realtime.AbsoluteTime;
 import javax.realtime.Clock;

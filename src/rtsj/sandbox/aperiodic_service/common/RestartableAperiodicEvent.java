@@ -5,8 +5,7 @@ import javax.realtime.AsynchronouslyInterruptedException;
 import javax.realtime.Clock;
 import javax.realtime.RelativeTime;
 
-// no import-static as it might get confusing
-import rtsj.sandbox.shared.TimeUtils;
+import rtsj.sandbox.common.TimeUtils;
 
 /**
  * THIS SOFTWARE IS PROVIDED BY Savvas Moysidis “AS IS” AND ANY EXPRESS OR

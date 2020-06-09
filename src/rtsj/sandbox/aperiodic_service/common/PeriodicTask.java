@@ -10,7 +10,7 @@ import javax.realtime.SchedulingParameters;
 import javax.realtime.memory.LTMemory;
 import javax.realtime.memory.ScopedMemory;
 
-import rtsj.sandbox.shared.TimeUtils;
+import rtsj.sandbox.common.TimeUtils;
 
 /**
  * THIS SOFTWARE IS PROVIDED BY Savvas Moysidis “AS IS” AND ANY EXPRESS OR
