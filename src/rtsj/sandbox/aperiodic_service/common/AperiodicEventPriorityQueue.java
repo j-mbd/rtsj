@@ -1,4 +1,4 @@
-package rtsj.sandbox.aperiodic_service.polling_server;
+package rtsj.sandbox.aperiodic_service.common;
 
 import java.util.Comparator;
 import java.util.Queue;

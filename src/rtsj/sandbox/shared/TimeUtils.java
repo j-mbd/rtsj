@@ -25,12 +25,14 @@ import javax.realtime.RelativeTime;
  */
 public class TimeUtils {
 
+	private static final Clock CLK = Clock.getRealtimeClock();
+
 	@SuppressWarnings("unchecked")
 	public static void spinWait(RelativeTime time) {
-		AbsoluteTime now = Clock.getRealtimeClock().getTime();
+		AbsoluteTime now = CLK.getTime();
 		AbsoluteTime waitUntil = now.add(time);
 		while (now.compareTo(waitUntil) < 0) {
-			Clock.getRealtimeClock().getTime(now);
+			CLK.getTime(now);
 		}
 	}
 }

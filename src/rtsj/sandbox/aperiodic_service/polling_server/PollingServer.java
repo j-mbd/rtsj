@@ -10,6 +10,9 @@ import javax.realtime.Timed;
 import javax.realtime.memory.LTMemory;
 import javax.realtime.memory.ScopedMemory;
 
+import rtsj.sandbox.aperiodic_service.common.AperiodicEventPriorityQueue;
+import rtsj.sandbox.aperiodic_service.common.InterruptibleAperiodicEvent;
+
 /**
  * THIS SOFTWARE IS PROVIDED BY Savvas Moysidis “AS IS” AND ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
@@ -39,6 +42,7 @@ public class PollingServer extends RealtimeThread {
 
 	private static final int SCOPED_MEM_SIZE = 10_000_000;
 
+	private final Clock clk;
 	private final RelativeTime totalBudget;
 	private final Timed timed;
 	private final AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> eventQueue;
@@ -65,6 +69,7 @@ public class PollingServer extends RealtimeThread {
 			AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> eventQueue) {
 		assert period.compareTo(budget) >= 0 : "period must not be less than capacity";
 		assert priority >= 0 : "priority must not be negative";
+		clk = Clock.getRealtimeClock();
 		setSchedulingParameters(new PriorityParameters(priority));
 		setReleaseParameters(new PeriodicParameters(period));
 		setName("PollingServer");
@@ -90,9 +95,9 @@ public class PollingServer extends RealtimeThread {
 				public void run() {
 					for (InterruptibleAperiodicEvent event = eventQueue.pop(); canProcessEvent(
 							event); event = eventQueue.pop()) {
-						Clock.getRealtimeClock().getTime(eventProcessingStart);
+						clk.getTime(eventProcessingStart);
 						timed.doInterruptible(event);
-						Clock.getRealtimeClock().getTime(eventProcessingEnd);
+						clk.getTime(eventProcessingEnd);
 						eventProcessingEnd.subtract(eventProcessingStart, totalProcessingCost);
 						amendRemainingBudget();
 						assert (remainingBudget.compareToZero() >= 0) : "remainingBudget must not be negative";

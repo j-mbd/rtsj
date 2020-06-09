@@ -1,4 +1,4 @@
-package rtsj.sandbox.aperiodic_service.polling_server;
+package rtsj.sandbox.aperiodic_service.common;
 
 import javax.realtime.AbsoluteTime;
 import javax.realtime.Clock;
@@ -35,6 +35,7 @@ import javax.realtime.RelativeTime;
 
 public abstract class InterruptibleAperiodicEvent implements Interruptible {
 
+	protected final Clock clk;
 	protected final RelativeTime totalCost;
 	protected final RelativeTime deadline;
 	protected final AbsoluteTime absoluteDeadline;
@@ -46,16 +47,18 @@ public abstract class InterruptibleAperiodicEvent implements Interruptible {
 	protected RelativeTime remainingCost;
 
 	protected InterruptibleAperiodicEvent(RelativeTime cost, RelativeTime deadline, String name) {
+		clk = Clock.getRealtimeClock();
 		this.totalCost = cost;
 		this.deadline = deadline;
 		// creation time and absolute deadline may not necessarily be the same as
 		// "physical" event time
-		creationTime = Clock.getRealtimeClock().getTime();
+		creationTime = clk.getTime();
 		absoluteDeadline = creationTime.add(deadline);
 		this.name = name;
 		wasInterrupted = false;
 		canRestart = true;
 		remainingCost = new RelativeTime(totalCost);
+
 	}
 
 	// ****************************STATUS REPORT****************************
@@ -141,7 +144,7 @@ public abstract class InterruptibleAperiodicEvent implements Interruptible {
 
 	@SuppressWarnings("unchecked")
 	public boolean deadlineMissed() {
-		return Clock.getRealtimeClock().getTime().compareTo(absoluteDeadline) > 0;
+		return clk.getTime().compareTo(absoluteDeadline) > 0;
 	}
 
 	// ****************************STATE CHANGE****************************

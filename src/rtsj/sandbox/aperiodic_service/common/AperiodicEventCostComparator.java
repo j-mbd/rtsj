@@ -1,4 +1,6 @@
-package rtsj.sandbox.aperiodic_service.polling_server;
+package rtsj.sandbox.aperiodic_service.common;
+
+import java.util.Comparator;
 
 /**
  * THIS SOFTWARE IS PROVIDED BY Savvas Moysidis “AS IS” AND ANY EXPRESS OR
@@ -16,16 +18,21 @@ package rtsj.sandbox.aperiodic_service.polling_server;
  * FREELY (OR EVEN NOT FREELY) AVAILABLE.
  * 
  * 
- * Strategy for event admission. Can be cost based if events are not restartable
- * or deadline based if they are.
+ * Sorts aperiodic events lowest cost to highest.
+ * 
+ * (This is only one option. Other comparators can be based off arrival-time or
+ * deadline)
+ * 
+ * Thread-safe
  * 
  * @author savvas
  *
- * @param <T>
  */
+public class AperiodicEventCostComparator<T extends InterruptibleAperiodicEvent> implements Comparator<T> {
 
-@FunctionalInterface
-public interface AperiodicEventAdmissionControl<T extends InterruptibleAperiodicEvent> {
-
-	boolean canAccept(T event);
+	@Override
+	@SuppressWarnings("unchecked")
+	public int compare(InterruptibleAperiodicEvent ae1, InterruptibleAperiodicEvent ae2) {
+		return ae1.cost().compareTo(ae2.cost());
+	}
 }
