@@ -26,8 +26,6 @@ import javax.realtime.AsynchronouslyInterruptedException;
  * 
  * Applies an all-come-all-leave scheme i.e. all expected threads need to arrive
  * and all need to leave. (may cause a "deserter" issue)
- * 
- * @author savvas
  *
  */
 public class AIEAtomicActionControl implements AtomicActionControl {

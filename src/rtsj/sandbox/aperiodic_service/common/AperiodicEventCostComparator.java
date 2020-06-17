@@ -25,8 +25,6 @@ import java.util.Comparator;
  * 
  * Thread-safe
  * 
- * @author savvas
- *
  */
 public class AperiodicEventCostComparator<T extends InterruptibleAperiodicEvent> implements Comparator<T> {
 

@@ -54,8 +54,6 @@ import javax.realtime.RelativeTime;
  * 1 1 0
  * 
  * 1 1 1
- * 
- * @author savvas
  *
  */
 public class App {

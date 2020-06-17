@@ -30,8 +30,6 @@ import rtsj.sandbox.common.TimeUtils;
  * 
  * Instances are "regular" (i.e. non-server) tasks belonging to the periodic
  * task set.
- * 
- * @author savvas
  *
  */
 public class PeriodicTask extends RealtimeThread {

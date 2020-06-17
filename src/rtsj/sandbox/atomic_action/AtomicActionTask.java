@@ -22,8 +22,6 @@ import javax.realtime.RelativeTime;
  * 
  * 
  * An abortable task that can participate in an atomic-action.
- * 
- * @author savvas
  *
  */
 public class AtomicActionTask extends RealtimeThread implements Interruptible {

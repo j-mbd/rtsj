@@ -29,13 +29,11 @@ import rtsj.sandbox.aperiodic_service.common.InterruptibleAperiodicEvent;
  * FREELY (OR EVEN NOT FREELY) AVAILABLE.
  * 
  * 
- * Implements the polling-server algorithm for aperiodic service.
+ * Implements the Polling-Server algorithm for aperiodic service.
  * 
  * INVARIANTS:
  * 
- * 1) remainingBudget >= 0
- * 
- * @author savvas
+ * 1) (remainingBudget >= 0) && (remainingBudget <= totalBudget)
  *
  */
 public class PollingServer extends RealtimeThread {
@@ -83,33 +81,24 @@ public class PollingServer extends RealtimeThread {
 		mem = new LTMemory(SCOPED_MEM_SIZE);
 	}
 
-	/**
-	 * TODO: clone() in *Time classes does not work??
-	 */
 	@Override
 	public void run() {
 		while (true) {
-			// TODO: enter() can only wrap the doInterruptible(..) part?
-			mem.enter(new Runnable() {
-				@Override
-				public void run() {
-					for (InterruptibleAperiodicEvent event = eventQueue.pop(); canProcessEvent(
-							event); event = eventQueue.pop()) {
-						clk.getTime(eventProcessingStart);
-						timed.doInterruptible(event);
-						clk.getTime(eventProcessingEnd);
-						eventProcessingEnd.subtract(eventProcessingStart, totalProcessingCost);
-						amendRemainingBudget();
-						assert (remainingBudget.compareToZero() >= 0) : "remainingBudget must not be negative";
-						// adjust new interrupt timeout
-						timed.resetTime(remainingBudget);
-						// re-push event if interrupted and it can restart so that event is processed in
-						// subsequent runs
-						if (event.wasInterrupted() && event.canRestart()) {
-							eventQueue.push(event);
-						}
+			mem.enter(() -> {
+				for (InterruptibleAperiodicEvent event = eventQueue.pop(); canProcessEvent(
+						event); event = eventQueue.pop()) {
+					clk.getTime(eventProcessingStart);
+					timed.doInterruptible(event);
+					clk.getTime(eventProcessingEnd);
+					adjustRemainingBudget();
+					// re-push event if interrupted and it can restart so that event is processed in
+					// subsequent runs
+					if (event.wasInterrupted() && event.canRestart()) {
+						event.reset();
+						eventQueue.push(event);
 					}
 				}
+
 			});
 			resetForNextPeriod();
 			waitForNextPeriod();
@@ -120,12 +109,18 @@ public class PollingServer extends RealtimeThread {
 		return (event != null) && (remainingBudget.compareToZero() > 0);
 	}
 
-	private void amendRemainingBudget() {
+	@SuppressWarnings("unchecked")
+	private void adjustRemainingBudget() {
+		eventProcessingEnd.subtract(eventProcessingStart, totalProcessingCost);
 		remainingBudget.subtract(totalProcessingCost, remainingBudget);
 		// maintain class invariant
 		if (remainingBudget.compareToZero() < 0) {
 			remainingBudget.set(0, 0);
 		}
+		// adjust new interrupt timeout
+		timed.resetTime(remainingBudget);
+		assert (remainingBudget.compareToZero() >= 0 && remainingBudget
+				.compareTo(totalBudget) <= 0) : "remainingBudget must not be negative or more than totalBudget";
 	}
 
 	private void resetForNextPeriod() {

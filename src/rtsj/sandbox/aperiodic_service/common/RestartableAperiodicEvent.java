@@ -26,8 +26,6 @@ import rtsj.sandbox.common.TimeUtils;
  * Keeps track of how much of its cost has been executed and how much is
  * remaining. This way, if processing is asynchronously interrupted, the
  * remaining processing cost is calculated and applied on the next run.
- * 
- * @author savvas
  *
  */
 public class RestartableAperiodicEvent extends InterruptibleAperiodicEvent
@@ -52,6 +50,40 @@ public class RestartableAperiodicEvent extends InterruptibleAperiodicEvent
 
 	@Override
 	public void interruptAction(AsynchronouslyInterruptedException exception) {
+		if (exception.clear()) {
+			targetAieCaught(exception);
+		} else if (AsynchronouslyInterruptedException.getGeneric().clear()) {
+			genericAieCaught(exception);
+		} else {
+			throw new RuntimeException(
+					"RestartableAperiodicEvent: A \"hand-thrown\" AsynchronouslyInterruptedException was raised",
+					exception);
+		}
+	}
+
+	@Override
+	public void run(AsynchronouslyInterruptedException exception) throws AsynchronouslyInterruptedException {
+		clk.getTime(processingStart);
+		System.out.println("Processing event " + name + " at " + clk.getTime());
+		runLogic();
+		wasInterrupted = false;
+		System.out.println("Processing of event " + name + " completed successfully at " + clk.getTime());
+	}
+
+	/**
+	 * The actual work to be done.
+	 */
+	protected void runLogic() {
+		TimeUtils.spinWait(remainingCost);
+	}
+
+	/**
+	 * Timed timer timed-out or fire() called on same
+	 * AsynchronouslyInterruptedException used go run this event's logic.
+	 * 
+	 * @param exception
+	 */
+	protected void targetAieCaught(AsynchronouslyInterruptedException exception) {
 		System.out.println("Processing event " + name + " interrupted at " + clk.getTime());
 		wasInterrupted = true;
 		clk.getTime(processingInterruptedEnd);
@@ -62,13 +94,14 @@ public class RestartableAperiodicEvent extends InterruptibleAperiodicEvent
 		}
 	}
 
-	@Override
-	public void run(AsynchronouslyInterruptedException exception) throws AsynchronouslyInterruptedException {
-		clk.getTime(processingStart);
-		System.out.println("Processing event " + name + " at " + clk.getTime());
-		TimeUtils.spinWait(remainingCost);
-		wasInterrupted = false;
-		System.out.println("Processing of event " + name + " complteted successfully at " + clk.getTime());
+	/**
+	 * The thread running the logic inside this AsynchronouslyInterruptedException
+	 * was externally interrupted by a call to interrupt().
+	 * 
+	 * @param exception
+	 */
+	protected void genericAieCaught(AsynchronouslyInterruptedException exception) {
+		wasGenericInterrupted = true;
 	}
 
 	private void recalculateRemainingCost() {

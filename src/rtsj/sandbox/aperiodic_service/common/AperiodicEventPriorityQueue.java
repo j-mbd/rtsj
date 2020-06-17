@@ -27,9 +27,9 @@ import java.util.concurrent.PriorityBlockingQueue;
  * NOTE: If instantiated with no Comparator, pushed elements must implement
  * Comparable.
  * 
- * Thread-safe
+ * TODO: Mention why there's no peek()?
  * 
- * @author savvas
+ * Thread-safe
  *
  */
 public class AperiodicEventPriorityQueue<T extends InterruptibleAperiodicEvent> {
@@ -109,7 +109,7 @@ public class AperiodicEventPriorityQueue<T extends InterruptibleAperiodicEvent> 
 	/**
 	 * Add new event to queue.
 	 * 
-	 * Never blocks as queue is unbounded.
+	 * Does not block as queue is unbounded.
 	 * 
 	 * @param event
 	 */
@@ -124,9 +124,9 @@ public class AperiodicEventPriorityQueue<T extends InterruptibleAperiodicEvent> 
 	}
 
 	/**
-	 * Return and remove first element from queue.
+	 * Remove and return first event from queue.
 	 * 
-	 * Returns null if empty.
+	 * Returns null if empty. Does not block.
 	 * 
 	 * @return
 	 */
@@ -135,11 +135,11 @@ public class AperiodicEventPriorityQueue<T extends InterruptibleAperiodicEvent> 
 	}
 
 	/**
-	 * How many events are there in the queue "now".
+	 * Are there no events in the queue?
 	 * 
 	 * @return
 	 */
-	public int size() {
-		return q.size();
+	public boolean isEmpty() {
+		return q.isEmpty();
 	}
 }

@@ -25,9 +25,6 @@ import rtsj.sandbox.aperiodic_service.common.RestartableAperiodicEvent;
  * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
  * FREELY (OR EVEN NOT FREELY) AVAILABLE.
  * 
- * 
- * @author savvas
- *
  */
 public class App {
 

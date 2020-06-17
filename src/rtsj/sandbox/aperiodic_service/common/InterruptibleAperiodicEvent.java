@@ -28,8 +28,6 @@ import javax.realtime.RelativeTime;
  * yet.
  * 
  * Not thread-safe.
- * 
- * @author savvas
  *
  */
 
@@ -43,6 +41,7 @@ public abstract class InterruptibleAperiodicEvent implements Interruptible {
 	protected final String name;
 
 	protected boolean wasInterrupted;
+	protected boolean wasGenericInterrupted;
 	protected boolean canRestart;
 	protected RelativeTime remainingCost;
 
@@ -118,8 +117,22 @@ public abstract class InterruptibleAperiodicEvent implements Interruptible {
 		return new AbsoluteTime(creationTime);
 	}
 
+	/**
+	 * Was processing interrupted by a Timed timer timing-out or a call to fire()?
+	 * 
+	 * @return
+	 */
 	public boolean wasInterrupted() {
 		return wasInterrupted;
+	}
+
+	/**
+	 * Was processing interrupted by a call to interrupt()?
+	 * 
+	 * @return
+	 */
+	public boolean wasGenericInterrupted() {
+		return wasGenericInterrupted;
 	}
 
 	/**
@@ -149,8 +162,13 @@ public abstract class InterruptibleAperiodicEvent implements Interruptible {
 
 	// ****************************STATE CHANGE****************************
 
+	/*
+	 * Clears interrupt and restartability flags. Must be called after interruption
+	 * and prior to adding the event back to the events queue.
+	 */
 	public void reset() {
 		wasInterrupted = false;
+		wasGenericInterrupted = false;
 		canRestart = true;
 	}
 }

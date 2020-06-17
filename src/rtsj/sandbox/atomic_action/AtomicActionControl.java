@@ -31,8 +31,6 @@ package rtsj.sandbox.atomic_action;
  * 
  * TODO: done() can be changed to return an int to allow for a richer set of
  * error conditions.
- * 
- * @author savvas
  *
  */
 public interface AtomicActionControl {
