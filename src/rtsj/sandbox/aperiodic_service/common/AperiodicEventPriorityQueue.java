@@ -27,8 +27,6 @@ import java.util.concurrent.PriorityBlockingQueue;
  * NOTE: If instantiated with no Comparator, pushed elements must implement
  * Comparable.
  * 
- * TODO: Mention why there's no peek()?
- * 
  * Thread-safe
  *
  */

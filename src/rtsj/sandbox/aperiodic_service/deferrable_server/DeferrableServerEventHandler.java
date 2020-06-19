@@ -168,7 +168,7 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	}
 
 	/**
-	 * Is there an event in the queue and is there any budget to run it?
+	 * Is there an event in the queue and is there budget to run it?
 	 * 
 	 * @return
 	 */

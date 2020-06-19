@@ -39,7 +39,7 @@ public class DeferrableServerBudgetReplenisher extends RealtimeThread {
 	private final AsyncEvent event;
 	private final MemoryArea mem;
 
-	public DeferrableServerBudgetReplenisher(int priority, RelativeTime period,
+	public DeferrableServerBudgetReplenisher(RelativeTime period, int priority,
 			DeferrableServerEventHandler deferrableServerEventHandler, AsyncEvent event, MemoryArea memoryArea) {
 		super(new PriorityParameters(priority), new PeriodicParameters(period), null, null, null, null);
 		this.deferrableServerEventHandler = deferrableServerEventHandler;
@@ -52,6 +52,8 @@ public class DeferrableServerBudgetReplenisher extends RealtimeThread {
 		while (true) {
 			mem.enter(() -> {
 				deferrableServerEventHandler.replenishBudget();
+				// notify handler
+				event.fire();
 			});
 			waitForNextPeriod();
 		}

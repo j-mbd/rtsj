@@ -1,9 +1,12 @@
-package rtsj.sandbox.aperiodic_service.polling_server;
+package rtsj.sandbox.aperiodic_service.deferrable_server;
 
 import java.util.Random;
 
+import javax.realtime.AsyncEvent;
 import javax.realtime.PriorityScheduler;
 import javax.realtime.RelativeTime;
+import javax.realtime.memory.LTMemory;
+import javax.realtime.memory.ScopedMemory;
 
 import rtsj.sandbox.aperiodic_service.common.AperiodicEventPriorityQueue;
 import rtsj.sandbox.aperiodic_service.common.InterruptibleAperiodicEvent;
@@ -29,30 +32,37 @@ import rtsj.sandbox.aperiodic_service.common.RestartableAperiodicEvent;
  * 
  * 
  */
+
 public class App {
 
 	public static void main(String... args) {
 
 		int maxPriority = PriorityScheduler.instance().getMaxPriority();
 
-		Thread t1 = new PeriodicTask(maxPriority - 1, 40, new RelativeTime(10, 0), "Thread#1");
+		// The task-set
+		Thread t1 = new PeriodicTask(maxPriority - 2, 40, new RelativeTime(10, 0), "Thread#1");
 		// higher period, lower priority
-		Thread t2 = new PeriodicTask(maxPriority - 2, 60, new RelativeTime(20, 0), "Thread#2");
-
+		Thread t2 = new PeriodicTask(maxPriority - 3, 60, new RelativeTime(20, 0), "Thread#2");
 		t1.start();
 		t2.start();
 
 		AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> q = new AperiodicEventPriorityQueue<InterruptibleAperiodicEvent>();
+		AsyncEvent apeEvent = new AsyncEvent();
 
-		// assigning polling-server highest priority as we can't guarantee ties will be
-		// broken in favour of the server
-		PollingServer ps = new PollingServer(maxPriority, new RelativeTime(50, 0), new RelativeTime(20, 0), q);
-		ps.start();
-
-		beginEventGeneration(q);
+		// assigning deferrable-server highest priority (relative to the task-set) as we
+		// can't guarantee ties will be broken in favour of the server
+		ScopedMemory mem = new LTMemory(2048);
+		DeferrableServerEventHandler eventHandler = new DeferrableServerEventHandler(q, new RelativeTime(50, 0),
+				maxPriority - 1, mem, false);
+		apeEvent.addHandler(eventHandler);
+		// assigning the budget replenisher the highest priority
+		new DeferrableServerBudgetReplenisher(new RelativeTime(100, 0), maxPriority, eventHandler, apeEvent, mem)
+				.start();
+		beginEventGeneration(q, apeEvent);
 	}
 
-	private static void beginEventGeneration(AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> q) {
+	private static void beginEventGeneration(AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> q,
+			AsyncEvent apeEvent) {
 		Random r = new Random();
 		final int maxDelay = 5_000;
 		int nextDelay = 0;
@@ -68,6 +78,7 @@ public class App {
 
 			RestartableAperiodicEvent event = new RestartableAperiodicEvent(cost, deadline, name);
 			q.push(event);
+			apeEvent.fire();
 			try {
 				Thread.sleep(nextDelay);
 			} catch (InterruptedException e) {
