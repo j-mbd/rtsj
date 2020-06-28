@@ -43,7 +43,6 @@ import rtsj.sandbox.aperiodic_service.common.InterruptibleAperiodicEvent;
  * 
  * 1) (remainingBudget >= 0) && (remainingBudget <= totalBudget)
  * 
- * 
  */
 public class DeferrableServerEventHandler extends AsyncEventHandler {
 
@@ -52,6 +51,9 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	// volatile since it is assigned in a non-synchronised manner at least once
 	private volatile Thread handlerThread;
 
+	// These values may be modified from within scoped memory (through the set*()
+	// methods), hence it's a good idea if all assignments are made in constructor
+	// and are final
 	private final AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> eventQueue;
 	private final RelativeTime totalBudget;
 	private final RelativeTime remainingBudget;
@@ -65,13 +67,15 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 		super(new PriorityParameters(priority), null, null, memoryArea, null, noHeap);
 		this.eventQueue = eventQueue;
 		this.totalBudget = new RelativeTime(totalBudget);
+
 		// start with a full budget
 		this.remainingBudget = new RelativeTime(this.totalBudget);
+		timed = new Timed(this.totalBudget);
+
 		this.totalProccessingCost = new RelativeTime();
 		this.eventProcessingStart = new AbsoluteTime();
 		this.eventProcessingEnd = new AbsoluteTime();
 
-		timed = new Timed(this.totalBudget);
 		clk = Clock.getRealtimeClock();
 	}
 
@@ -80,9 +84,11 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	 * (DeferrableServerBudgetReplenisher) which runs at a higher priority than this
 	 * handler, preempts it and calls replenishBudget() on this object. When this
 	 * happens there are two states that this handler could be in: blocked if it's
-	 * budget has been exceeded or there are no more events to process or running.
-	 * If it is running, then processing needs to be paused, the budget replenished
-	 * and processing of the _same_ event resumed.
+	 * budget has been exceeded or there are no more events to process or running
+	 * (note, it cannot have been preempted or be blocked since it runs at a
+	 * priority higher than the periodic task set and doesn't synchronise on any
+	 * resource). If it is running, then processing needs to be paused, the budget
+	 * replenished and processing of the _same_ event resumed.
 	 * 
 	 * This becomes important when the events queue applies some ordering other than
 	 * arrival time:
@@ -93,14 +99,13 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	 * remaining event cost is greater than (tr + a - tc) the event would be
 	 * interrupted at exactly that time ( i.e. tr + a), it would be put back into
 	 * the queue (assuming it's restartable) and a newer event with a smaller cost
-	 * would effectively "preempt" it. To prevent this from happening, the event is
-	 * interrupted upon each replenish event, the budget is replenished and the same
-	 * event is subsequently restarted.
-	 * 
-	 * This will guarantee a continuation in the handler's behaviour.
+	 * (assuming ordering by cost) would effectively "preempt" it. To prevent this
+	 * from happening, the event is interrupted upon each replenish event, the
+	 * budget is replenished and the same event is subsequently restarted. This will
+	 * guarantee a continuation in the handler's behaviour.
 	 * 
 	 * NOTE: The reason the above analysis is relevant is due to the fact that this
-	 * application is compiled against a 1.1 spec version and relies on the
+	 * application is compiled against a 1.1 version of the spec and relies on the
 	 * resetTime(...) method of Timed class which resets the time for the _next_
 	 * invocation of doInterruptible(..). The newest 2.0 spec supports a method
 	 * called restart(...) which adjusts the timeout and restarts the timer _whilst_
@@ -113,7 +118,7 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	public void handleAsyncEvent() {
 		try {
 			// stash handling thread in a var so that the replenisher can interrupt it
-			// (typically a thread per priority in non-BoundAsyncEventHandler)
+			// (typically a single thread per priority in non-BoundAsyncEventHandler)
 			handlerThread = RealtimeThread.currentThread();
 			// pending fire-count is not important here as this handler is driven
 			// exclusively by the events queue - clear this for consistency
@@ -128,7 +133,7 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 					runAndAdjustRemainingBudget(event);
 				}
 				if (event.wasInterrupted() && event.canRestart()) {
-					// event was interrupted by budget depletion event. Re-push so that it is
+					// event was interrupted by budget-depletion event. Re-push so that it is
 					// processed in subsequent runs
 					event.reset();
 					eventQueue.push(event);
@@ -149,13 +154,18 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	/**
 	 * NOTE: The replenisher will cause a generic AIE to be raised (since it's
 	 * interrupting via interrupt()) and it is possible that when this happens there
-	 * is already a pending AIE in the stack (i.e. the timer has fired only slightly
+	 * is already a pending AIE in the stack (i.e. timed has fired only slightly
 	 * sooner). This however will not affect the expected behaviour of the
-	 * replenisher getting precedence, as based on the AIE nesting rules the generic
+	 * replenisher getting priority, as based on the AIE nesting rules the generic
 	 * AIE will overrule (and replace) any pending AIEs.
-	 * 
 	 */
+	@SuppressWarnings("unchecked")
 	public synchronized void replenishBudget() {
+		if (remainingBudget.compareTo(totalBudget) == 0) {
+			// no events processed since last replenish time - nothing to change
+			return;
+		}
+		// maintain class invariant
 		remainingBudget.set(totalBudget.getMilliseconds(), totalBudget.getNanoseconds());
 		timed.resetTime(totalBudget);
 		if (handlerThread != null) {
@@ -165,6 +175,7 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 		} else {
 			// NOP: this handler hasn't processed any events yet
 		}
+		assertClassInvariants();
 	}
 
 	/**
@@ -189,7 +200,6 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 		adjustForNextRun();
 	}
 
-	@SuppressWarnings("unchecked")
 	private synchronized void adjustForNextRun() {
 		remainingBudget.subtract(totalProccessingCost, remainingBudget);
 		// maintain class invariant
@@ -198,6 +208,11 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 		}
 		// adjust new interrupt timeout
 		timed.resetTime(remainingBudget);
+		assertClassInvariants();
+	}
+
+	@SuppressWarnings("unchecked")
+	private void assertClassInvariants() {
 		assert (remainingBudget.compareToZero() >= 0 && remainingBudget
 				.compareTo(totalBudget) <= 0) : "remainingBudget must not be negative or more than totalBudget";
 	}

@@ -30,7 +30,6 @@ import rtsj.sandbox.aperiodic_service.common.RestartableAperiodicEvent;
  * 
  * NOTE: Values for all components are largely random.
  * 
- * 
  */
 
 public class App {

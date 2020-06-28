@@ -24,19 +24,24 @@ import rtsj.sandbox.common.TimeUtils;
  * 
  * 
  * Keeps track of how much of its cost has been executed and how much is
- * remaining. This way, if processing is asynchronously interrupted, the
- * remaining processing cost is calculated and applied on the next run.
+ * remaining so that if processing is asynchronously interrupted, the remaining
+ * processing cost is calculated and applied on the next run.
+ * 
+ * NOTE: Some protected methods could be be private and not overridable. If no
+ * further subclasses are anticipated then this is probably the best strategy.
+ * (i.e. a trade-off between runtime cost and extensibility)
  *
  */
 public class RestartableAperiodicEvent extends InterruptibleAperiodicEvent
 		implements Comparable<RestartableAperiodicEvent> {
 
 	// These values may be modified from within scoped memory (through the set*()
-	// methods), hence it's a good idea if all assignments are made here and are
-	// final
+	// methods), hence it's a good idea if all assignments are made in constructor
+	// and are final
 	private final RelativeTime remainingCost;
 	private final AbsoluteTime processingStart;
 	private final AbsoluteTime processingInterruptedEnd;
+	private final RelativeTime totalCostToInterruprion;
 
 	private final Clock clk;
 
@@ -45,15 +50,16 @@ public class RestartableAperiodicEvent extends InterruptibleAperiodicEvent
 		remainingCost = new RelativeTime(totalCost);
 		processingStart = new AbsoluteTime();
 		processingInterruptedEnd = new AbsoluteTime();
+		totalCostToInterruprion = new RelativeTime();
 		clk = Clock.getRealtimeClock();
 	}
 
 	@Override
 	public void interruptAction(AsynchronouslyInterruptedException exception) {
 		if (exception.clear()) {
-			targetAieCaught(exception);
+			targetAieCaught();
 		} else if (AsynchronouslyInterruptedException.getGeneric().clear()) {
-			genericAieCaught(exception);
+			genericAieCaught();
 		} else {
 			throw new RuntimeException(
 					"RestartableAperiodicEvent: A \"hand-thrown\" AsynchronouslyInterruptedException was raised",
@@ -72,26 +78,20 @@ public class RestartableAperiodicEvent extends InterruptibleAperiodicEvent
 
 	/**
 	 * The actual work to be done.
+	 * 
 	 */
 	protected void runLogic() {
 		TimeUtils.spinWait(remainingCost);
 	}
 
 	/**
-	 * Timed timer timed-out or fire() called on same
-	 * AsynchronouslyInterruptedException used go run this event's logic.
+	 * Timed timer timed-out.
 	 * 
 	 * @param exception
 	 */
-	protected void targetAieCaught(AsynchronouslyInterruptedException exception) {
-		System.out.println("Processing event " + name + " interrupted at " + clk.getTime());
+	protected void targetAieCaught() {
 		wasInterrupted = true;
-		clk.getTime(processingInterruptedEnd);
-		recalculateRemainingCost();
-		amendRestartabilityStatus();
-		if (deadlineMissed()) {
-			handleDeadlineMiss();
-		}
+		handleAie();
 	}
 
 	/**
@@ -100,12 +100,26 @@ public class RestartableAperiodicEvent extends InterruptibleAperiodicEvent
 	 * 
 	 * @param exception
 	 */
-	protected void genericAieCaught(AsynchronouslyInterruptedException exception) {
+	protected void genericAieCaught() {
 		wasGenericInterrupted = true;
+		handleAie();
 	}
 
+	private void handleAie() {
+		System.out.println("Processing event " + name + " interrupted at " + clk.getTime());
+		clk.getTime(processingInterruptedEnd);
+		recalculateRemainingCost();
+		amendRestartabilityStatus();
+		if (deadlineMissed()) {
+			handleDeadlineMiss();
+		}
+	}
+
+	// both the following two methods are only called from one place only so
+	// inlining shouldn't increase size
+
 	private void recalculateRemainingCost() {
-		RelativeTime totalCostToInterruprion = processingInterruptedEnd.subtract(processingStart);
+		processingInterruptedEnd.subtract(processingStart, totalCostToInterruprion);
 		remainingCost.subtract(totalCostToInterruprion, remainingCost);
 	}
 

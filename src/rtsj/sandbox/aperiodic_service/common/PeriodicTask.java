@@ -66,7 +66,7 @@ public class PeriodicTask extends RealtimeThread {
 			mem.enter(new Runnable() {
 				@Override
 				public void run() {
-					// emulate some task work
+					// simulate some task work
 					TimeUtils.spinWait(cost);
 				}
 			});
