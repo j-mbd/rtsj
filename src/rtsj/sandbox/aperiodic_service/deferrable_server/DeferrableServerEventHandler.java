@@ -83,12 +83,12 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	 * The budget replenisher is a periodic thread
 	 * (DeferrableServerBudgetReplenisher) which runs at a higher priority than this
 	 * handler, preempts it and calls replenishBudget() on this object. When this
-	 * happens there are two states that this handler could be in: blocked if it's
-	 * budget has been exceeded or there are no more events to process or running
-	 * (note, it cannot have been preempted or be blocked since it runs at a
-	 * priority higher than the periodic task set and doesn't synchronise on any
-	 * resource). If it is running, then processing needs to be paused, the budget
-	 * replenished and processing of the _same_ event resumed.
+	 * happens there are two (notional) states this handler could be in: waiting, if
+	 * it's budget has been exceeded or there are no more events to process or it
+	 * could be running (note, it cannot have been preempted or blocked since it
+	 * runs at a priority higher than the periodic task set and doesn't synchronise
+	 * on any common resource). If it is running, then processing needs to be
+	 * paused, the budget replenished and processing of the _same_ event resumed.
 	 * 
 	 * This becomes important when the events queue applies some ordering other than
 	 * arrival time:
@@ -154,7 +154,7 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	/**
 	 * NOTE: The replenisher will cause a generic AIE to be raised (since it's
 	 * interrupting via interrupt()) and it is possible that when this happens there
-	 * is already a pending AIE in the stack (i.e. timed has fired only slightly
+	 * is already a pending AIE in the stack (i.e. Timed has fired only slightly
 	 * sooner). This however will not affect the expected behaviour of the
 	 * replenisher getting priority, as based on the AIE nesting rules the generic
 	 * AIE will overrule (and replace) any pending AIEs.
@@ -183,9 +183,10 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	 * 
 	 * @return
 	 */
-	private boolean canProcessEvent() {
-		// as this handler is meant to be the _only_ consumer of the queue the following
-		// predicates are race-free.
+	private synchronized boolean canProcessEvent() {
+		// as this method is synchronised (protecting "remainingBudget" from
+		// budget-replenisher) and this handler is meant to be the _only_ consumer of
+		// the queue the following predicates are race-free.
 		return (!eventQueue.isEmpty()) && (remainingBudget.compareToZero() > 0);
 		// _if_ however there can be more than one consumers then an event needs
 		// to be popped and used in the following predicates ("event" is passed as
