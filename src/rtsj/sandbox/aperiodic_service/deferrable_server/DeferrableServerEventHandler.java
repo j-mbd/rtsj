@@ -109,8 +109,8 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	 * resetTime(...) method of Timed class which resets the time for the _next_
 	 * invocation of doInterruptible(..). The newest 2.0 spec supports a method
 	 * called restart(...) which adjusts the timeout and restarts the timer _whilst_
-	 * the Timed object is running, therefore making all this logic and checking the
-	 * different interrupt types in events, redundant.
+	 * the Timed object is running, making all this logic and checking the different
+	 * interrupt types in events, redundant.
 	 * 
 	 * NOTE: Will run in memory area passed in the constructor.
 	 */
