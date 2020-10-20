@@ -97,34 +97,39 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	 * remaining server budget is (tr + a -tc) where tc < tr < (tr + a), so current
 	 * processing would be pushed to just over the next replenish time. Then, if the
 	 * remaining event cost is greater than (tr + a - tc) the event would be
-	 * interrupted at exactly that time ( i.e. tr + a), it would be put back into
-	 * the queue (assuming it's restartable) and a newer event with a smaller cost
-	 * (assuming ordering by cost) would effectively "preempt" it. To prevent this
-	 * from happening, the event is interrupted upon each replenish event, the
-	 * budget is replenished and the same event is subsequently restarted. This will
-	 * guarantee a continuation in the handler's behaviour.
+	 * interrupted at tr, it would be put back into the queue (assuming it's
+	 * restartable) and a newer event with a smaller cost (assuming ordering by
+	 * cost) would effectively "preempt" it. To prevent this from happening, the
+	 * event is interrupted upon each replenish event, the budget is replenished and
+	 * the same event is subsequently restarted. This will guarantee a continuation
+	 * in the handler's behaviour.
 	 * 
 	 * NOTE: The reason the above analysis is relevant is due to the fact that this
 	 * application is compiled against a 1.1 version of the spec and relies on the
 	 * resetTime(...) method of Timed class which resets the time for the _next_
 	 * invocation of doInterruptible(..). The newest 2.0 spec supports a method
 	 * called restart(...) which adjusts the timeout and restarts the timer _whilst_
-	 * the Timed object is running, making all this logic and checking the different
-	 * interrupt types in events, redundant.
+	 * the Timed object is running, making interrupting the handling thread and
+	 * checking the different interrupt types in events, redundant.
 	 * 
-	 * NOTE: Will run in memory area passed in the constructor.
+	 * NOTE: Runs in memory area passed in the constructor.
+	 * 
+	 * NOTE: All small private methods should be inlined by the builder.
 	 */
 	@Override
 	public void handleAsyncEvent() {
 		try {
-			// stash handling thread in a var so that the replenisher can interrupt it
+			// stash handling thread in a variable so that the replenisher can interrupt it
 			// (typically a single thread per priority in non-BoundAsyncEventHandler)
-			handlerThread = RealtimeThread.currentThread();
+			// If a BoundAsyncEventHandler were used instead this would always point to
+			// the same thread.
+			//
+			handlerThread = RealtimeThread.currentRealtimeThread();
 			// pending fire-count is not important here as this handler is driven
 			// exclusively by the events queue - clear this for consistency
 			getAndClearPendingFireCount();
 
-			while (canProcessEvent()) {
+			while (canStartProcessing()) {
 				InterruptibleAperiodicEvent event = eventQueue.pop();
 				runAndAdjustRemainingBudget(event);
 				if (event.wasGenericInterrupted()) {
@@ -141,8 +146,9 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 			}
 		} finally {
 			synchronized (this) {
-				// clear any potential interrupt flag set by the replenisher but didn't
-				// cause an event interrupt
+				// clear any pending interrupt set by the replenisher but didn't
+				// cause an event interrupt (i.e. replenish event took place outside
+				// doInterruptible())
 				RealtimeThread.interrupted();
 				// null-out handler thread reference so that the replenisher doesn't set the
 				// interrupt flag to a thread that's no longer servicing this handler
@@ -162,39 +168,46 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	@SuppressWarnings("unchecked")
 	public synchronized void replenishBudget() {
 		if (remainingBudget.compareTo(totalBudget) == 0) {
-			// no events processed since last replenish time - nothing to change
+			// no events processed since last replenish time - no replenish needed
 			return;
 		}
-		// maintain class invariant
 		remainingBudget.set(totalBudget.getMilliseconds(), totalBudget.getNanoseconds());
 		timed.resetTime(totalBudget);
 		if (handlerThread != null) {
-			// interrupt status for thread is cleared in event (RestartableAperiodicEvent)
-			// or when this handler completes a run
+			// interrupt status for thread is cleared in event (when interruptAction() in
+			// RestartableAperiodicEvent returns) or when this handler completes a run
 			handlerThread.interrupt();
-		} else {
-			// NOP: this handler hasn't processed any events yet
 		}
 		assertClassInvariants();
 	}
 
 	/**
-	 * Is there an event in the queue and is there budget to run it?
+	 * Are conditions right to start processing?
+	 * 
+	 * As this method is synchronised (protecting "remainingBudget" from
+	 * budget-replenisher) and this handler is meant to be the _only_ consumer of
+	 * the queue the following predicates are race-free. If however there can be
+	 * more than one consumers then an event needs to be popped and used in the
+	 * following predicates ("event" is passed as argument):
+	 * 
+	 * return (event != null) && (remainingBudget.compareToZero() > 0);
+	 * 
+	 * If an interrupt has been
 	 * 
 	 * @return
 	 */
-	private synchronized boolean canProcessEvent() {
-		// as this method is synchronised (protecting "remainingBudget" from
-		// budget-replenisher) and this handler is meant to be the _only_ consumer of
-		// the queue the following predicates are race-free.
-		return (!eventQueue.isEmpty()) && (remainingBudget.compareToZero() > 0);
-		// _if_ however there can be more than one consumers then an event needs
-		// to be popped and used in the following predicates ("event" is passed as
-		// argument) return (event != null) && (remainingBudget.compareToZero() > 0);
+	private synchronized boolean canStartProcessing() {
+		return (!eventQueue.isEmpty() && remainingBudget.compareToZero() > 0);
 	}
 
 	private void runAndAdjustRemainingBudget(InterruptibleAperiodicEvent event) {
+		// eventProcessing* variables are not touched by replenisher
 		clk.getTime(eventProcessingStart);
+		// If a pending generic AIE exists at this point (i.e. the
+		// replenisher has just ran) this AIE will be thrown immediately and only
+		// interruptAction will run which may introduce some processing latency. This
+		// can be avoided if resuming the currently processing event is not required or
+		// a version 2.0 implementation is used (see comment in handleAsyncEvent())
 		timed.doInterruptible(event);
 		clk.getTime(eventProcessingEnd);
 		eventProcessingEnd.subtract(eventProcessingStart, totalProccessingCost);
@@ -203,7 +216,6 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 
 	private synchronized void adjustForNextRun() {
 		remainingBudget.subtract(totalProccessingCost, remainingBudget);
-		// maintain class invariant
 		if (remainingBudget.compareToZero() < 0) {
 			remainingBudget.set(0, 0);
 		}
@@ -214,7 +226,8 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 
 	@SuppressWarnings("unchecked")
 	private void assertClassInvariants() {
-		assert (remainingBudget.compareToZero() >= 0 && remainingBudget
-				.compareTo(totalBudget) <= 0) : "remainingBudget must not be negative or more than totalBudget";
+		assert (remainingBudget.compareToZero() >= 0 && remainingBudget.compareTo(
+				totalBudget) <= 0) : "remainingBudget must not be negative or more than the available totalBudget ["
+						+ totalBudget + "]";
 	}
 }

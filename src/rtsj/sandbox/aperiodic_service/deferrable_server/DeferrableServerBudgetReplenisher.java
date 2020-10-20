@@ -52,7 +52,7 @@ public class DeferrableServerBudgetReplenisher extends RealtimeThread {
 		while (true) {
 			mem.enter(() -> {
 				deferrableServerEventHandler.replenishBudget();
-				// notify handler
+				// process any events that may be waiting for service due to insufficient budget
 				event.fire();
 			});
 			waitForNextPeriod();
