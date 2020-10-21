@@ -30,13 +30,13 @@ import java.util.concurrent.PriorityBlockingQueue;
  * Thread-safe
  *
  */
-public class AperiodicEventPriorityQueue<T extends InterruptibleAperiodicEvent> {
+public class AperiodicEventPriorityQueue<E extends InterruptibleAperiodicEvent> implements EventQueue<E> {
 
 	private static final int DEFAULT_QUEUE_SIZE = 10;
 
-	private final Queue<T> q;
+	private final Queue<E> q;
 
-	private AperiodicEventAdmissionControl<T> admissionControl;
+	private AperiodicEventAdmissionControl<E> admissionControl;
 
 	public AperiodicEventPriorityQueue() {
 		this(DEFAULT_QUEUE_SIZE);
@@ -62,7 +62,7 @@ public class AperiodicEventPriorityQueue<T extends InterruptibleAperiodicEvent> 
 	 * 
 	 * @param comparator
 	 */
-	public AperiodicEventPriorityQueue(Comparator<T> comparator) {
+	public AperiodicEventPriorityQueue(Comparator<E> comparator) {
 		this(DEFAULT_QUEUE_SIZE, comparator);
 	}
 
@@ -76,7 +76,7 @@ public class AperiodicEventPriorityQueue<T extends InterruptibleAperiodicEvent> 
 	 * @param initialSize
 	 * @param comparator
 	 */
-	public AperiodicEventPriorityQueue(int initialSize, Comparator<T> comparator) {
+	public AperiodicEventPriorityQueue(int initialSize, Comparator<E> comparator) {
 		assert initialSize >= 0 : "initialSize" + initialSize + " must not be negative";
 		assert comparator != null : "comparator must not be null";
 		q = new PriorityBlockingQueue<>(initialSize, comparator);
@@ -97,21 +97,15 @@ public class AperiodicEventPriorityQueue<T extends InterruptibleAperiodicEvent> 
 	 * @param aperiodicEventAdmissionControl
 	 */
 
-	public AperiodicEventPriorityQueue(int initialSize, Comparator<T> comparator,
-			AperiodicEventAdmissionControl<T> aperiodicEventAdmissionControl) {
+	public AperiodicEventPriorityQueue(int initialSize, Comparator<E> comparator,
+			AperiodicEventAdmissionControl<E> aperiodicEventAdmissionControl) {
 		this(initialSize, comparator);
 		assert aperiodicEventAdmissionControl != null : "aperiodicEventAdmissionControl must not be null";
 		this.admissionControl = aperiodicEventAdmissionControl;
 	}
 
-	/**
-	 * Add new event to queue.
-	 * 
-	 * Does not block as queue is unbounded.
-	 * 
-	 * @param event
-	 */
-	public void push(T event) {
+	@Override
+	public void push(E event) {
 		if (admissionControl != null) {
 			if (admissionControl.canAccept(event)) {
 				q.offer(event);
@@ -121,22 +115,12 @@ public class AperiodicEventPriorityQueue<T extends InterruptibleAperiodicEvent> 
 		}
 	}
 
-	/**
-	 * Remove and return first event from queue.
-	 * 
-	 * Returns null if empty. Does not block.
-	 * 
-	 * @return
-	 */
-	public T pop() {
+	@Override
+	public E pop() {
 		return q.poll();
 	}
 
-	/**
-	 * Are there no events in the queue?
-	 * 
-	 * @return
-	 */
+	@Override
 	public boolean isEmpty() {
 		return q.isEmpty();
 	}

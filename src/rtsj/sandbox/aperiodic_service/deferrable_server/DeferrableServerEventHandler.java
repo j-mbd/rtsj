@@ -9,7 +9,7 @@ import javax.realtime.RealtimeThread;
 import javax.realtime.RelativeTime;
 import javax.realtime.Timed;
 
-import rtsj.sandbox.aperiodic_service.common.AperiodicEventPriorityQueue;
+import rtsj.sandbox.aperiodic_service.common.EventQueue;
 import rtsj.sandbox.aperiodic_service.common.InterruptibleAperiodicEvent;
 
 /**
@@ -48,6 +48,20 @@ import rtsj.sandbox.aperiodic_service.common.InterruptibleAperiodicEvent;
  * 
  * 1) (remainingBudget >= 0) && (remainingBudget <= totalBudget)
  * 
+ * OPEN QUESTIONS:
+ * 
+ * Does the handler need to be tied to one handling logic or be generic and
+ * process any events? If the former then this handler must be configured with
+ * one Interruptible implementation which allows an event to be set. If the
+ * latter then the logic must be coded in the event object itself as it is done
+ * in this implementation.
+ * 
+ * The question of which memory area events are created in hasn't been dealt
+ * with at all. If excessive object creation is to be avoided then a recycling
+ * Queue implemented based on the wait-free constructs should be provided.
+ * 
+ * 
+ * 
  */
 public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 
@@ -59,7 +73,7 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	// These values may be modified from within scoped memory (through the set*()
 	// methods), hence it's a good idea if all assignments are made in constructor
 	// and are final
-	private final AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> eventQueue;
+	private final EventQueue<InterruptibleAperiodicEvent> eventQueue;
 	private final RelativeTime totalBudget;
 	private final RelativeTime remainingBudget;
 	private final RelativeTime totalProccessingCost;
@@ -67,8 +81,8 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	private final AbsoluteTime eventProcessingStart;
 	private final AbsoluteTime eventProcessingEnd;
 
-	public DeferrableServerEventHandler(AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> eventQueue,
-			RelativeTime totalBudget, int priority, MemoryArea memoryArea, boolean noHeap) {
+	public DeferrableServerEventHandler(EventQueue<InterruptibleAperiodicEvent> eventQueue, RelativeTime totalBudget,
+			int priority, MemoryArea memoryArea, boolean noHeap) {
 		super(new PriorityParameters(priority), null, null, memoryArea, null, noHeap, null);
 		this.eventQueue = eventQueue;
 		this.totalBudget = new RelativeTime(totalBudget);
@@ -124,11 +138,6 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	 * 
 	 * NOTE: All small private methods should be inlined by the builder.
 	 * 
-	 * OPEN QUESTIONS: Does the handler need to be tied to one handling logic or be
-	 * generic and process any events? If the former then this handler must be
-	 * configured with one Interruptible implementation which allows and event to be
-	 * set. If the latter then the logic must be coded in the event object itself as
-	 * it is done in this implementation.
 	 */
 	@Override
 	public void handleAsyncEvent() {
@@ -157,12 +166,10 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 				}
 			}
 		} finally {
-			synchronized (this) {
-				// clear any pending interrupt set by the replenisher but didn't
-				// cause an event interrupt (i.e. replenish event took place outside
-				// doInterruptible())
-				RealtimeThread.interrupted();
-			}
+			// clear any pending interrupt set by the replenisher but didn't
+			// cause an event interrupt (i.e. replenish event took place outside
+			// doInterruptible())
+			RealtimeThread.interrupted();
 		}
 	}
 
@@ -204,7 +211,8 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	}
 
 	private void runAndAdjustRemainingBudget(InterruptibleAperiodicEvent event) {
-		// eventProcessing* variables are not touched by replenisher
+		// eventProcessing*/totalProccessingCost variables are not touched by the
+		// replenisher
 		clk.getTime(eventProcessingStart);
 		// If a pending generic AIE exists at this point (i.e. the
 		// replenisher has just ran) this AIE will be thrown immediately and only
