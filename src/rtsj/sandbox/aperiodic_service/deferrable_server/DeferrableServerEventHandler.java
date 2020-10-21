@@ -1,7 +1,7 @@
 package rtsj.sandbox.aperiodic_service.deferrable_server;
 
 import javax.realtime.AbsoluteTime;
-import javax.realtime.AsyncEventHandler;
+import javax.realtime.BoundAsyncEventHandler;
 import javax.realtime.Clock;
 import javax.realtime.MemoryArea;
 import javax.realtime.PriorityParameters;
@@ -39,16 +39,21 @@ import rtsj.sandbox.aperiodic_service.common.InterruptibleAperiodicEvent;
  * priority ties are resolved in favour of the server. If they aren't, then this
  * server must be given a higher priority.
  * 
+ * NOTE: This handler is a BoundAsyncEventHandler and is therefore given a
+ * dedicated thread. Since a Deferrable Server is effectively one more task in
+ * the entire task-set it is justifiable to not incur the overhead of attaching
+ * a new thread to it every time it is called.
+ * 
  * INVARIANTS:
  * 
  * 1) (remainingBudget >= 0) && (remainingBudget <= totalBudget)
  * 
  */
-public class DeferrableServerEventHandler extends AsyncEventHandler {
+public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 
 	private final Timed timed;
 	private final Clock clk;
-	// volatile since it is assigned in a non-synchronised manner at least once
+	// volatile since it is assigned in a non-synchronised manner
 	private volatile Thread handlerThread;
 
 	// These values may be modified from within scoped memory (through the set*()
@@ -64,7 +69,7 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 
 	public DeferrableServerEventHandler(AperiodicEventPriorityQueue<InterruptibleAperiodicEvent> eventQueue,
 			RelativeTime totalBudget, int priority, MemoryArea memoryArea, boolean noHeap) {
-		super(new PriorityParameters(priority), null, null, memoryArea, null, noHeap);
+		super(new PriorityParameters(priority), null, null, memoryArea, null, noHeap, null);
 		this.eventQueue = eventQueue;
 		this.totalBudget = new RelativeTime(totalBudget);
 
@@ -86,7 +91,7 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	 * happens there are two (notional) states this handler could be in: waiting, if
 	 * it's budget has been exceeded or there are no more events to process or it
 	 * could be running (note, it cannot have been preempted or blocked since it
-	 * runs at a priority higher than the periodic task set and doesn't synchronise
+	 * runs at a priority higher than the periodic task-set and doesn't synchronise
 	 * on any common resource). If it is running, then processing needs to be
 	 * paused, the budget replenished and processing of the _same_ event resumed.
 	 * 
@@ -102,7 +107,10 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	 * cost) would effectively "preempt" it. To prevent this from happening, the
 	 * event is interrupted upon each replenish event, the budget is replenished and
 	 * the same event is subsequently restarted. This will guarantee a continuation
-	 * in the handler's behaviour.
+	 * in the handler's behaviour. It can be argued that this is the desired
+	 * behaviour when a specific queue sorting policy is in place but this approach
+	 * perhaps provides better responsiveness for the currently processing event
+	 * where replenishment is within it's execution interval.
 	 * 
 	 * NOTE: The reason the above analysis is relevant is due to the fact that this
 	 * application is compiled against a 1.1 version of the spec and relies on the
@@ -115,15 +123,19 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	 * NOTE: Runs in memory area passed in the constructor.
 	 * 
 	 * NOTE: All small private methods should be inlined by the builder.
+	 * 
+	 * OPEN QUESTIONS: Does the handler need to be tied to one handling logic or be
+	 * generic and process any events? If the former then this handler must be
+	 * configured with one Interruptible implementation which allows and event to be
+	 * set. If the latter then the logic must be coded in the event object itself as
+	 * it is done in this implementation.
 	 */
 	@Override
 	public void handleAsyncEvent() {
 		try {
-			// stash handling thread in a variable so that the replenisher can interrupt it
-			// (typically a single thread per priority in non-BoundAsyncEventHandler)
-			// If a BoundAsyncEventHandler were used instead this would always point to
-			// the same thread.
-			//
+			// stash handling thread in a variable so that the replenisher can interrupt it.
+			// As this is a BoundAsyncEventHandler the variable will always get assigned to
+			// the same thread
 			handlerThread = RealtimeThread.currentRealtimeThread();
 			// pending fire-count is not important here as this handler is driven
 			// exclusively by the events queue - clear this for consistency
@@ -150,9 +162,6 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 				// cause an event interrupt (i.e. replenish event took place outside
 				// doInterruptible())
 				RealtimeThread.interrupted();
-				// null-out handler thread reference so that the replenisher doesn't set the
-				// interrupt flag to a thread that's no longer servicing this handler
-				handlerThread = null;
 			}
 		}
 	}
@@ -185,14 +194,8 @@ public class DeferrableServerEventHandler extends AsyncEventHandler {
 	 * Are conditions right to start processing?
 	 * 
 	 * As this method is synchronised (protecting "remainingBudget" from
-	 * budget-replenisher) and this handler is meant to be the _only_ consumer of
-	 * the queue the following predicates are race-free. If however there can be
-	 * more than one consumers then an event needs to be popped and used in the
-	 * following predicates ("event" is passed as argument):
-	 * 
-	 * return (event != null) && (remainingBudget.compareToZero() > 0);
-	 * 
-	 * If an interrupt has been
+	 * budget-replenisher) and this handler remains the _only_ consumer of the queue
+	 * the following predicates are race-free.
 	 * 
 	 * @return
 	 */
