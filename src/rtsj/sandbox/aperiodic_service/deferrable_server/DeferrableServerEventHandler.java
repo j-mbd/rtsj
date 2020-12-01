@@ -7,6 +7,7 @@ import javax.realtime.MemoryArea;
 import javax.realtime.PriorityParameters;
 import javax.realtime.RealtimeThread;
 import javax.realtime.RelativeTime;
+import javax.realtime.SchedulingParameters;
 import javax.realtime.Timed;
 
 import rtsj.sandbox.aperiodic_service.common.EventQueue;
@@ -81,8 +82,14 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	private final AbsoluteTime eventProcessingStart;
 	private final AbsoluteTime eventProcessingEnd;
 
+	private final int normalPriority;
+	private final int backgroundPriority;
+
+	private boolean runningInNormalPriority;
+	private boolean runningInBackgroundPriority;
+
 	public DeferrableServerEventHandler(EventQueue<InterruptibleAperiodicEvent> eventQueue, RelativeTime totalBudget,
-			int priority, MemoryArea memoryArea, boolean noHeap) {
+			int priority, int backgroundPriority, MemoryArea memoryArea, boolean noHeap) {
 		super(new PriorityParameters(priority), null, null, memoryArea, null, noHeap, null);
 		this.eventQueue = eventQueue;
 		this.totalBudget = new RelativeTime(totalBudget);
@@ -96,6 +103,8 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 		this.eventProcessingEnd = new AbsoluteTime();
 
 		clk = Clock.getRealtimeClock();
+		this.normalPriority = priority;
+		this.backgroundPriority = backgroundPriority;
 	}
 
 	/**
@@ -106,8 +115,9 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	 * it's budget has been exceeded or there are no more events to process or it
 	 * could be running (note, it cannot have been preempted or blocked since it
 	 * runs at a priority higher than the periodic task-set and doesn't synchronise
-	 * on any common resource). If it is running, then processing needs to be
-	 * paused, the budget replenished and processing of the _same_ event resumed.
+	 * on any common resource other than itself with the replenisher). If it is
+	 * running, then processing needs to be paused, the budget replenished and
+	 * processing of the _same_ event resumed.
 	 * 
 	 * This becomes important when the events queue applies some ordering other than
 	 * arrival time:
@@ -117,7 +127,7 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	 * processing would be pushed to just over the next replenish time. Then, if the
 	 * remaining event cost is greater than (tr + a - tc) the event would be
 	 * interrupted at tr, it would be put back into the queue (assuming it's
-	 * restartable) and a newer event with a smaller cost (assuming ordering by
+	 * restartable) and a newer event with say a smaller cost (assuming ordering by
 	 * cost) would effectively "preempt" it. To prevent this from happening, the
 	 * event is interrupted upon each replenish event, the budget is replenished and
 	 * the same event is subsequently restarted. This will guarantee a continuation
@@ -142,6 +152,7 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	@Override
 	public void handleAsyncEvent() {
 		try {
+			restoreNormalPriority();
 			// stash handling thread in a variable so that the replenisher can interrupt it.
 			// As this is a BoundAsyncEventHandler the variable will always get assigned to
 			// the same thread
@@ -150,7 +161,7 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 			// exclusively by the events queue - clear this for consistency
 			getAndClearPendingFireCount();
 
-			while (canStartProcessing()) {
+			while (canProcess()) {
 				InterruptibleAperiodicEvent event = eventQueue.pop();
 				runAndAdjustRemainingBudget(event);
 				if (event.wasGenericInterrupted()) {
@@ -158,11 +169,14 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 					// try running the _same_ event to completion
 					runAndAdjustRemainingBudget(event);
 				}
-				if (event.wasInterrupted() && event.canRestart()) {
-					// event was interrupted by budget-depletion event. Re-push so that it is
-					// processed in subsequent runs
-					event.reset();
-					eventQueue.push(event);
+				if (event.wasInterrupted()) {
+					if (event.canRestart()) {
+						// event was interrupted by budget-depletion event. Re-push so that it is
+						// processed in subsequent runs
+						event.reset();
+						eventQueue.push(event);
+					}
+					demoteToBackgroundPriority();
 				}
 			}
 		} finally {
@@ -206,8 +220,9 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	 * 
 	 * @return
 	 */
-	private synchronized boolean canStartProcessing() {
-		return (!eventQueue.isEmpty() && remainingBudget.compareToZero() > 0);
+	private synchronized boolean canProcess() {
+		return (runningInNormalPriority && !eventQueue.isEmpty() && remainingBudget.compareToZero() > 0)
+				|| (runningInBackgroundPriority && !eventQueue.isEmpty());
 	}
 
 	private void runAndAdjustRemainingBudget(InterruptibleAperiodicEvent event) {
@@ -233,6 +248,35 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 		// adjust new interrupt timeout
 		timed.resetTime(remainingBudget);
 		assertClassInvariants();
+	}
+
+	private void restoreNormalPriority() {
+		if (!runningInNormalPriority) {
+			runningInNormalPriority = true;
+			runningInBackgroundPriority = false;
+			changePriority(normalPriority);
+		}
+	}
+
+	private void demoteToBackgroundPriority() {
+		if (!runningInBackgroundPriority) {
+			runningInNormalPriority = false;
+			runningInBackgroundPriority = true;
+			changePriority(backgroundPriority);
+		}
+	}
+
+	private void changePriority(int priority) {
+		SchedulingParameters sp = getSchedulingParameters();
+		if (sp instanceof PriorityParameters) {
+			PriorityParameters pp = (PriorityParameters) sp;
+			pp.setPriority(priority);
+			setSchedulingParameters(pp);
+		} else {
+			// not PriorityParameters??
+			throw new RuntimeException("Was expecting SchedulingParameters object for " + getClass().getName()
+					+ " to be of type \"PriorityParameters\" but it wasn't. It was: " + sp.getClass().getName());
+		}
 	}
 
 	@SuppressWarnings("unchecked")

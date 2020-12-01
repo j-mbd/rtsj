@@ -51,8 +51,9 @@ public class App {
 		// assigning deferrable-server highest priority (relative to the task-set) as we
 		// can't guarantee ties will be broken in favour of the server
 		ScopedMemory mem = new LTMemory(2048);
+		int backgroundPriority = PriorityScheduler.instance().getMinPriority();
 		DeferrableServerEventHandler eventHandler = new DeferrableServerEventHandler(q, new RelativeTime(50, 0),
-				maxPriority - 1, mem, false);
+				maxPriority - 1, backgroundPriority, mem, false);
 		apeEvent.addHandler(eventHandler);
 		// assigning the budget replenisher the highest priority
 		new DeferrableServerBudgetReplenisher(new RelativeTime(100, 0), maxPriority, eventHandler, apeEvent, mem)
