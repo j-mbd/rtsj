@@ -38,7 +38,6 @@ public class AlarmNotificationAction extends RealtimeThread {
 				try {
 					waitMonitor.wait();
 				} catch (InterruptedException ie) {
-					interrupt();
 					throw new RuntimeException(ie);
 				}
 			}
