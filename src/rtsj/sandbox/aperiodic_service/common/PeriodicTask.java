@@ -25,7 +25,7 @@ import rtsj.sandbox.common.TimeUtils;
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
- * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * AVAILABLE.
  * 
  * 
  * Instances are "regular" (i.e. non-server) tasks belonging to the periodic

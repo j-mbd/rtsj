@@ -13,7 +13,7 @@ package rtsj.sandbox.aperiodic_service.common;
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
- * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * AVAILABLE.
  * 
  * 
  * Strategy for event admission. Can be cost based if events are not restartable

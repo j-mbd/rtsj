@@ -17,7 +17,7 @@ import java.util.concurrent.PriorityBlockingQueue;
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
- * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * AVAILABLE.
  * 
  * 
  * Provides access to aperiodic events returned in an order defined by the given

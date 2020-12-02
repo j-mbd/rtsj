@@ -15,7 +15,7 @@ import java.util.Comparator;
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
- * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * AVAILABLE.
  * 
  * 
  * Sorts aperiodic events lowest cost to highest.

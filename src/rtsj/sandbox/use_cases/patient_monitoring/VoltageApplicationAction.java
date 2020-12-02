@@ -17,7 +17,8 @@ import javax.realtime.RealtimeThread;
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
- * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * AVAILABLE.
+ * 
  *
  */
 public class VoltageApplicationAction extends RealtimeThread {

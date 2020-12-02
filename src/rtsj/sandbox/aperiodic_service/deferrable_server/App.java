@@ -26,7 +26,8 @@ import rtsj.sandbox.aperiodic_service.common.RestartableAperiodicEvent;
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
- * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * AVAILABLE.
+ * 
  * 
  * NOTE: Values for all components are largely random.
  * 

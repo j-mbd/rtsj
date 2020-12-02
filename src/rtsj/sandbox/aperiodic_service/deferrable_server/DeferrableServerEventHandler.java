@@ -26,7 +26,7 @@ import rtsj.sandbox.aperiodic_service.common.InterruptibleAperiodicEvent;
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
  * IMPORTANT NOTE: COULD NOT BE TESTED AS PERSONAL EDITION VMs ARE NO LONGER
- * FREELY (OR EVEN NOT FREELY) AVAILABLE.
+ * AVAILABLE.
  * 
  * 
  * Together with DeferrableServerBudgetReplenisher forms a logical
@@ -85,7 +85,6 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	private final int normalPriority;
 	private final int backgroundPriority;
 
-	private boolean runningInNormalPriority;
 	private boolean runningInBackgroundPriority;
 
 	public DeferrableServerEventHandler(EventQueue<InterruptibleAperiodicEvent> eventQueue, RelativeTime totalBudget,
@@ -105,6 +104,8 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 		clk = Clock.getRealtimeClock();
 		this.normalPriority = priority;
 		this.backgroundPriority = backgroundPriority;
+		// just making it explicit in the code
+		this.runningInBackgroundPriority = false;
 	}
 
 	/**
@@ -152,7 +153,7 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	@Override
 	public void handleAsyncEvent() {
 		try {
-			restoreNormalPriority();
+			restoreNormalPriorityIfBg();
 			// stash handling thread in a variable so that the replenisher can interrupt it.
 			// As this is a BoundAsyncEventHandler the variable will always get assigned to
 			// the same thread
@@ -160,16 +161,15 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 			// pending fire-count is not important here as this handler is driven
 			// exclusively by the events queue - clear this for consistency
 			getAndClearPendingFireCount();
-
 			while (canProcess()) {
 				InterruptibleAperiodicEvent event = eventQueue.pop();
 				runAndAdjustRemainingBudget(event);
 				if (event.wasGenericInterrupted()) {
 					// event was interrupted by budget-replenish event. With budget now replenished,
 					// try running the _same_ event to completion
+					restoreNormalPriorityIfBg();
 					runAndAdjustRemainingBudget(event);
-				}
-				if (event.wasInterrupted()) {
+				} else if (event.wasInterrupted()) {
 					if (event.canRestart()) {
 						// event was interrupted by budget-depletion event. Re-push so that it is
 						// processed in subsequent runs
@@ -221,7 +221,7 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	 * @return
 	 */
 	private synchronized boolean canProcess() {
-		return (runningInNormalPriority && !eventQueue.isEmpty() && remainingBudget.compareToZero() > 0)
+		return (!runningInBackgroundPriority && !eventQueue.isEmpty() && remainingBudget.compareToZero() > 0)
 				|| (runningInBackgroundPriority && !eventQueue.isEmpty());
 	}
 
@@ -250,9 +250,8 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 		assertClassInvariants();
 	}
 
-	private void restoreNormalPriority() {
-		if (!runningInNormalPriority) {
-			runningInNormalPriority = true;
+	private void restoreNormalPriorityIfBg() {
+		if (runningInBackgroundPriority) {
 			runningInBackgroundPriority = false;
 			changePriority(normalPriority);
 		}
@@ -260,7 +259,6 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 
 	private void demoteToBackgroundPriority() {
 		if (!runningInBackgroundPriority) {
-			runningInNormalPriority = false;
 			runningInBackgroundPriority = true;
 			changePriority(backgroundPriority);
 		}
