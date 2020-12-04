@@ -267,9 +267,7 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	private void changePriority(int priority) {
 		SchedulingParameters sp = getSchedulingParameters();
 		if (sp instanceof PriorityParameters) {
-			PriorityParameters pp = (PriorityParameters) sp;
-			pp.setPriority(priority);
-			setSchedulingParameters(pp);
+			((PriorityParameters) sp).setPriority(priority);
 		} else {
 			// not PriorityParameters??
 			throw new RuntimeException("Was expecting SchedulingParameters object for " + getClass().getName()
