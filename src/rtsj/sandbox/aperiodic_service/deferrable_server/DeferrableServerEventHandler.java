@@ -49,6 +49,8 @@ import rtsj.sandbox.aperiodic_service.common.InterruptibleAperiodicEvent;
  * 
  * 1) (remainingBudget >= 0) && (remainingBudget <= totalBudget)
  * 
+ * 2) normalPriority > backgroundPriority
+ * 
  * OPEN QUESTIONS:
  * 
  * Does the handler need to be tied to one handling logic or be generic and
@@ -106,6 +108,8 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 		this.backgroundPriority = backgroundPriority;
 		// just making it explicit in the code
 		this.runningInBackgroundPriority = false;
+
+		assertClassInvariants();
 	}
 
 	/**
@@ -280,5 +284,6 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 		assert (remainingBudget.compareToZero() >= 0 && remainingBudget.compareTo(
 				totalBudget) <= 0) : "remainingBudget must not be negative or more than the available totalBudget ["
 						+ totalBudget + "]";
+		assert normalPriority > backgroundPriority : "normalPriority cannot be equal or less than backgroundPriority";
 	}
 }
