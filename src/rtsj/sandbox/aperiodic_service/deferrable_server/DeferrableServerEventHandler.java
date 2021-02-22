@@ -170,15 +170,19 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 				runAndAdjustRemainingBudget(event);
 				if (event.wasGenericInterrupted()) {
 					// event was interrupted by budget-replenish event. With budget now replenished,
-					// try running the _same_ event to completion
+					// try running the _same_ event to completion or until budget is depleted
 					restoreNormalPriorityIfBg();
 					runAndAdjustRemainingBudget(event);
-				} else if (event.wasInterrupted()) {
+				}
+				if (event.wasInterrupted()) {
 					if (event.canRestart()) {
 						// event was interrupted by budget-depletion event. Re-push so that it is
 						// processed in subsequent runs
 						event.reset();
 						eventQueue.push(event);
+					} else {
+						// this is an open question: error-handle this? reject non-restartable in the
+						// first place?
 					}
 					demoteToBackgroundPriority();
 				}
@@ -219,7 +223,7 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 	 * Are conditions right to start processing?
 	 * 
 	 * As this method is synchronised (protecting "remainingBudget" from
-	 * budget-replenisher) and this handler remains the _only_ consumer of the queue
+	 * budget-replenisher) and this handler remains the *only* consumer of the queue
 	 * the following predicates are race-free.
 	 * 
 	 * @return
@@ -233,11 +237,11 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 		// eventProcessing*/totalProccessingCost variables are not touched by the
 		// replenisher
 		clk.getTime(eventProcessingStart);
-		// If a pending generic AIE exists at this point (i.e. the
-		// replenisher has just ran) this AIE will be thrown immediately and only
-		// interruptAction will run which may introduce some processing latency. This
-		// can be avoided if resuming the currently processing event is not required or
-		// a version 2.0 implementation is used (see comment in handleAsyncEvent())
+		// If a pending generic AIE exists at this point (i.e. the replenisher has just
+		// ran) this AIE will be thrown immediately and only interruptAction will run
+		// which may introduce some processing latency (more specifically a conditional
+		// check and two method calls). This can be avoided if a version 2.0
+		// implementation is used (see comment in handleAsyncEvent())
 		timed.doInterruptible(event);
 		clk.getTime(eventProcessingEnd);
 		eventProcessingEnd.subtract(eventProcessingStart, totalProccessingCost);
@@ -275,11 +279,11 @@ public class DeferrableServerEventHandler extends BoundAsyncEventHandler {
 		} else {
 			// not PriorityParameters??
 			throw new RuntimeException("Was expecting SchedulingParameters object for " + getClass().getName()
-					+ " to be of type \"PriorityParameters\" but it wasn't. It was: " + sp.getClass().getName());
+					+ " to be of type \"PriorityParameters\" but it was: " + sp.getClass().getName());
 		}
 	}
 
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings("unchecked") // for the raw types of HighResolutionTime
 	private void assertClassInvariants() {
 		assert (remainingBudget.compareToZero() >= 0 && remainingBudget.compareTo(
 				totalBudget) <= 0) : "remainingBudget must not be negative or more than the available totalBudget ["
