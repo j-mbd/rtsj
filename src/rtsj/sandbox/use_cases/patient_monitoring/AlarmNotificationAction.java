@@ -1,8 +1,8 @@
 package rtsj.sandbox.use_cases.patient_monitoring;
 
+import javax.realtime.BoundAsyncEventHandler;
 import javax.realtime.MemoryArea;
 import javax.realtime.PriorityParameters;
-import javax.realtime.RealtimeThread;
 
 /**
  * THIS SOFTWARE IS PROVIDED BY Savvas Moysidis “AS IS” AND ANY EXPRESS OR
@@ -21,30 +21,19 @@ import javax.realtime.RealtimeThread;
  * 
  * 
  */
-public class AlarmNotificationAction extends RealtimeThread {
+public class AlarmNotificationAction extends BoundAsyncEventHandler {
 
 	public final MemoryArea memoryArea;
-	public final Object waitMonitor;
 
-	public AlarmNotificationAction(int priority, MemoryArea memoryArea, Object waitMonitor) {
+	public AlarmNotificationAction(int priority, MemoryArea memoryArea) {
 		setSchedulingParameters(new PriorityParameters(priority));
 		this.memoryArea = memoryArea;
-		this.waitMonitor = waitMonitor;
 	}
 
 	@Override
-	public void run() {
-		while (true) {
-			synchronized (waitMonitor) {
-				try {
-					waitMonitor.wait();
-				} catch (InterruptedException ie) {
-					throw new RuntimeException(ie);
-				}
-			}
-			memoryArea.enter(() -> {
-				System.out.println("***SOUNDING HOSPITAL ALARM***");
-			});
-		}
+	public void handleAsyncEvent() {
+		memoryArea.enter(() -> {
+			System.out.println("***SOUNDING HOSPITAL ALARM***");
+		});
 	}
 }

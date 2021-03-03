@@ -37,9 +37,14 @@ public class HeartbeatInterruptHandler extends AsyncEventHandler {
 		this.voltageControl = voltageControl;
 	}
 
+	/**
+	 * At this stage we have received a heartbeat.
+	 */
 	@Override
 	public void handleAsyncEvent() {
+		// reset watchdog for next heartbeat duration
 		oneShotTimer.reschedule(maxNoBeatInterval);
+		// reset voltage as it might have been increased
 		voltageControl.resetVoltage();
 	}
 }

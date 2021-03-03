@@ -1,8 +1,8 @@
 package rtsj.sandbox.use_cases.patient_monitoring;
 
+import javax.realtime.BoundAsyncEventHandler;
 import javax.realtime.MemoryArea;
 import javax.realtime.PriorityParameters;
-import javax.realtime.RealtimeThread;
 
 /**
  * THIS SOFTWARE IS PROVIDED BY Savvas Moysidis “AS IS” AND ANY EXPRESS OR
@@ -21,36 +21,24 @@ import javax.realtime.RealtimeThread;
  * 
  *
  */
-public class VoltageApplicationAction extends RealtimeThread {
+public class VoltageApplicationAction extends BoundAsyncEventHandler {
 
 	private final VoltageControl voltageControl;
 	private final MemoryArea memoryArea;
-	private final Object waitMonitor;
 
-	public VoltageApplicationAction(int priority, VoltageControl voltageControl, MemoryArea memoryArea,
-			Object waitMonitor) {
+	public VoltageApplicationAction(int priority, VoltageControl voltageControl, MemoryArea memoryArea) {
 		setSchedulingParameters(new PriorityParameters(priority));
 		this.voltageControl = voltageControl;
 		this.memoryArea = memoryArea;
-		this.waitMonitor = waitMonitor;
 	}
 
 	@Override
-	public void run() {
-		while (true) {
-			synchronized (waitMonitor) {
-				try {
-					waitMonitor.wait();
-				} catch (InterruptedException ie) {
-					throw new RuntimeException(ie);
-				}
+	public void handleAsyncEvent() {
+		memoryArea.enter(() -> {
+			boolean shockApplied = voltageControl.increaseVoltageAndApplyShock();
+			if (!shockApplied) {
+				System.out.println("***WARNING: APPLYING MAX VOLTAGE***");
 			}
-			memoryArea.enter(() -> {
-				boolean shockApplied = voltageControl.increaseVoltageAndApplyShock();
-				if (!shockApplied) {
-					System.out.println("***WARNING: APPLYING MAX VOLTAGE***");
-				}
-			});
-		}
+		});
 	}
 }

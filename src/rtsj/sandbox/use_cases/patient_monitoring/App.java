@@ -32,9 +32,9 @@ import javax.realtime.memory.LTMemory;
  * register is set up so that every time an integer value x is assigned to it
  * the patient receives x volts over a a small period of time.
  * 
- * If no heartbeat is recorded within a 5 second period the patient's life is in
- * danger. Two actions should be taken when the patient's heart fails: the first
- * is that a 'supervisor' task should be notified so that it may sound the
+ * If no heart-beat is recorded within a 5 second period the patient's life is
+ * in danger. Two actions should be taken when the patient's heart fails: the
+ * first is that a 'supervisor' task should be notified so that it may sound the
  * hospital alarm and the second is that a single electric shock of 5 volts
  * should be administered. If the patient fails to respond, the voltage should
  * be increased by 1 volt for every further 5 seconds.
@@ -46,42 +46,48 @@ public class App {
 	private static final String HEARTBEAT_INTERRUPT = "HEARTBEAT_INTERRUPT";
 
 	public static void main(String... args) {
+		// fired for every heart-beat
 		AsyncEvent heartBeatEvent = new AsyncEvent();
 		heartBeatEvent.bindTo(HEARTBEAT_INTERRUPT);
 
-		RelativeTime maxNoBeatInterval = new RelativeTime(MAX_NO_BEAT_MILLIS, 0);
+		// how long can we tolerate a no heart-beat in milliseconds
+		RelativeTime maxNoBeatDuration = new RelativeTime(MAX_NO_BEAT_MILLIS, 0);
 
+		// component priorities
 		final int maxPriority = PriorityScheduler.instance().getMaxPriority();
-		final int interruptHandlerPriority = maxPriority;
+		final int heartBeatInterruptHandlerPriority = maxPriority;
 		final int noBeatActionPriority = maxPriority - 1;
 		final int alarmActionPriority = maxPriority - 2;
 		final int voltageActionPriority = maxPriority - 3;
 
+		// component collaborators
 		VoltageControl voltageControl = new VoltageControl(0177760, 0, 0, 1, 20);
 
-		MemoryArea alarmActionMemoryArea = new LTMemory(2048);
-		Object alarmNotificationMonitor = new Object();
-
-		MemoryArea voltageActionMemoryArea = new LTMemory(2048);
-		Object voltageApplicationMonitor = new Object();
-
-		RelativeTime maxNoBeatIntervalTime = new RelativeTime(maxNoBeatInterval);
+		// fired from watchdog when no heart-beat received within "maxNoBeatDuration"
+		// milliseconds
+		AsyncEvent noBeatEvent = new AsyncEvent();
+		// register handlers/actions with no-beat event
+		MemoryArea alarmActionMemoryArea = new LTMemory(1024 * 2);
+		AsyncEventHandler alarmAction = new AlarmNotificationAction(alarmActionPriority, alarmActionMemoryArea);
+		noBeatEvent.addHandler(alarmAction);
+		MemoryArea voltageActionMemoryArea = new LTMemory(1024 * 2);
+		AsyncEventHandler voltageAction = new VoltageApplicationAction(voltageActionPriority, voltageControl,
+				voltageActionMemoryArea);
+		noBeatEvent.addHandler(voltageAction);
 
 		// *** CREATE AND START ALL COMPONENTS ***
+		RelativeTime maxNoBeatIntervalTime = new RelativeTime(maxNoBeatDuration);
 		OneShotTimer heartBeatWatchdog = new OneShotTimer(maxNoBeatIntervalTime, null); // handler attached a bit later
-		NoBeatThresholdExceededAction noBeatThresholdExceededAction = new NoBeatThresholdExceededAction(
-				noBeatActionPriority, heartBeatWatchdog, maxNoBeatIntervalTime, alarmNotificationMonitor,
-				voltageApplicationMonitor);
+		AsyncEventHandler noBeatThresholdExceededAction = new NoBeatThresholdExceededAction(noBeatActionPriority,
+				heartBeatWatchdog, maxNoBeatIntervalTime, noBeatEvent);
 		heartBeatWatchdog.setHandler(noBeatThresholdExceededAction);
 
-		MemoryArea interruptHandlerMemoryArea = new LTMemory(2048);
-		AsyncEventHandler heartbeatInterruptHandler = new HeartbeatInterruptHandler(interruptHandlerPriority,
+		// main heartbeat event handler
+		MemoryArea interruptHandlerMemoryArea = new LTMemory(1024 * 2);
+		AsyncEventHandler heartbeatInterruptHandler = new HeartbeatInterruptHandler(heartBeatInterruptHandlerPriority,
 				maxNoBeatIntervalTime, heartBeatWatchdog, voltageControl, interruptHandlerMemoryArea);
 		heartBeatEvent.addHandler(heartbeatInterruptHandler);
 
 		heartBeatWatchdog.start();
-		new AlarmNotificationAction(alarmActionPriority, alarmActionMemoryArea, alarmNotificationMonitor).start();
-		new VoltageApplicationAction(voltageActionPriority, voltageControl, voltageActionMemoryArea,
-				voltageApplicationMonitor).start();
 	}
 }

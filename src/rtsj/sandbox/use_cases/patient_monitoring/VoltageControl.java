@@ -52,7 +52,7 @@ public class VoltageControl {
 	 *         threshold has been reached.
 	 */
 	public synchronized boolean increaseVoltageAndApplyShock() {
-		if (!maxThresholdReached()) {
+		if (voltageIncrementLegal()) {
 			increaseVoltage();
 			applyShock();
 			return true;
@@ -61,12 +61,27 @@ public class VoltageControl {
 		return false;
 	}
 
-	// Should we stop increasing the voltage?
-	private boolean maxThresholdReached() {
-		return currentVoltage == maxVoltageThreshold;
+	// Are we allowed to increase the voltage with a step increment?
+	private boolean voltageIncrementLegal() {
+		return (currentVoltage + voltageIncreaseStep) <= maxVoltageThreshold;
 	}
 
+	/**
+	 * REQUIRES:
+	 * 
+	 * voltageIncrementLegal() == true
+	 * 
+	 * ENSURES:
+	 * 
+	 * currentVoltage = currentVoltage + voltageIncreaseStep;
+	 * 
+	 * IMPORTANT: Any precondition tests MUST be done within a synchronised block to
+	 * avoid stale assessments.
+	 * 
+	 */
 	private void increaseVoltage() {
+		assert voltageIncrementLegal() == false : "Cannot increase voltage, max threshold [" + maxVoltageThreshold
+				+ "] would be violated";
 		currentVoltage += voltageIncreaseStep;
 		assert currentVoltage >= 0 && currentVoltage <= maxVoltageThreshold : "currentVoltage [" + currentVoltage
 				+ "] not within [0," + maxVoltageThreshold + "] limits";

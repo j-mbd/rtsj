@@ -1,5 +1,6 @@
 package rtsj.sandbox.use_cases.patient_monitoring;
 
+import javax.realtime.AsyncEvent;
 import javax.realtime.AsyncEventHandler;
 import javax.realtime.OneShotTimer;
 import javax.realtime.PriorityParameters;
@@ -24,31 +25,29 @@ import javax.realtime.RelativeTime;
  */
 public class NoBeatThresholdExceededAction extends AsyncEventHandler {
 
+	private final AsyncEvent noBeatEvent;
 	private final OneShotTimer heartBeatWatchdog;
 	private final RelativeTime maxNoBeatInterval;
-	private final Object alarmNotificationMonitor;
-	private final Object voltageApplicationMonitor;
 
 	public NoBeatThresholdExceededAction(int priority, OneShotTimer heartBeatWatchdog, RelativeTime maxNoBeatInterval,
-			Object alarmNotificationMonitor, Object voltageApplicationMonitor) {
+			AsyncEvent noBeatEvent) {
 		setSchedulingParameters(new PriorityParameters(priority));
+		this.noBeatEvent = noBeatEvent;
 		this.heartBeatWatchdog = heartBeatWatchdog;
 		this.maxNoBeatInterval = new RelativeTime(maxNoBeatInterval);
-		this.alarmNotificationMonitor = alarmNotificationMonitor;
-		this.voltageApplicationMonitor = voltageApplicationMonitor;
+
 	}
 
+	/**
+	 * No heartbeat received within the maximum threshold.
+	 */
 	@Override
 	public void handleAsyncEvent() {
-		wakeUpWaiter(alarmNotificationMonitor);
-		wakeUpWaiter(voltageApplicationMonitor);
+		// release actions
+		noBeatEvent.fire();
+		// re-configure watchdog for next beat duration
 		heartBeatWatchdog.reschedule(maxNoBeatInterval);
+		// watchdog must be made active and enabled again since it has fired now
 		heartBeatWatchdog.start();
-	}
-
-	private void wakeUpWaiter(Object waitMonitor) {
-		synchronized (waitMonitor) {
-			waitMonitor.notify();
-		}
 	}
 }
